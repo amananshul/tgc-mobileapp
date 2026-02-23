@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16
+    container_name: tgc-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tgc
+      POSTGRES_PASSWORD: tgcpass
+      POSTGRES_DB: tgc_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - tgc_pgdata:/var/lib/postgresql/data
+
+volumes:
+  tgc_pgdata:

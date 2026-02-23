@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProfileIntent {
+  LEARN
+  EARN
+  ENTERTAIN
+}
+
+enum ProfileMode {
+  USER
+  HOST
+}
+
+enum UserRole {
+  USER
+  HOST
+  ADMIN
+}
+
+enum TribeVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum TribeMemberRole {
+  MEMBER
+  MODERATOR
+  OWNER
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  phone         String?   @unique
+  phoneVerified Boolean   @default(false)
+  otpCode       String?
+  otpExpiry     DateTime?
+  role          UserRole  @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  profile        Profile?
+  refreshTokens  RefreshToken[]
+  tribes         UserTribe[]
+  createdTribes  Tribe[]        @relation("TribeCreator")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Profile {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  intent         ProfileIntent?
+  avatarUrl      String?
+  username       String?  @unique
+  fullName       String?
+  city           String?
+  bio            String?  @db.VarChar(120)
+  interests      String[] @default([])
+  skills         String[] @default([])
+  activeMode     ProfileMode @default(USER)
+  onboardingStep Int      @default(0)
+  isOnboarded    Boolean  @default(false)
+  karmaPoints    Int      @default(0)
+  updatedAt      DateTime @updatedAt
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Tribe {
+  id            String          @id @default(uuid())
+  name          String          @unique
+  slug          String          @unique
+  description   String?         @db.VarChar(300)
+  emoji         String          @default("🌟")
+  category      String          @default("general")
+  visibility    TribeVisibility @default(PUBLIC)
+  memberCount   Int             @default(0)
+  createdById   String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  createdBy     User?           @relation("TribeCreator", fields: [createdById], references: [id])
+  members       UserTribe[]
+
+  @@index([category])
+  @@index([slug])
+}
+
+model UserTribe {
+  id        String          @id @default(uuid())
+  userId    String
+  tribeId   String
+  role      TribeMemberRole @default(MEMBER)
+  joinedAt  DateTime        @default(now())
+
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tribe     Tribe           @relation(fields: [tribeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tribeId])
+  @@index([tribeId])
+  @@index([userId])
+}
