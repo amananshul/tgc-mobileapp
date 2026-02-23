@@ -1,0 +1,55 @@
+#################################
+# Mac
+#################################
+.DS_Store
+
+#################################
+# Node (Frontend + Backend)
+#################################
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+#################################
+# Environment files
+#################################
+.env
+.env.*
+!.env.example
+
+#################################
+# React Native (tgc-frontend)
+#################################
+tgc-frontend/node_modules/
+tgc-frontend/android/.gradle/
+tgc-frontend/android/app/build/
+tgc-frontend/android/build/
+tgc-frontend/ios/build/
+tgc-frontend/ios/Pods/
+tgc-frontend/ios/DerivedData/
+tgc-frontend/.expo/
+tgc-frontend/.bundle/
+
+#################################
+# Express (tgc-express)
+#################################
+tgc-express/node_modules/
+tgc-express/dist/
+tgc-express/build/
+
+#################################
+# Logs
+#################################
+*.log
+
+#################################
+# IDE
+#################################
+.vscode/
+.idea/
+
+#################################
+# Misc
+#################################
+coverage/

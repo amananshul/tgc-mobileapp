@@ -1,0 +1,14 @@
+export const ENDPOINTS = {
+  AUTH_REGISTER: '/auth/register',
+  AUTH_LOGIN: '/auth/login',
+  AUTH_VERIFY_OTP: '/auth/verify-otp',
+  AUTH_RESEND_OTP: '/auth/resend-otp',
+  AUTH_REFRESH: '/auth/refresh',
+  AUTH_LOGOUT: '/auth/logout',
+  USERS_ME: '/users/me',
+  PROFILE: '/profile',
+  DASHBOARD: '/dashboard',
+  TRIBES: '/tribes',
+  TRIBES_MY: '/tribes/my',
+  UPLOAD_AVATAR: '/uploads/avatar',
+} as const;
