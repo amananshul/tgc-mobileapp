@@ -1,5 +1,6 @@
 const prisma = require("../../prisma/prisma");
 const { safeUser, safeProfile } = require("../../utils/safeTransform");
+const uploadService = require("../uploads/upload.service");
 
 function getProfileCompleteness(user, profile) {
   if (!profile) return 0;
@@ -30,20 +31,22 @@ async function getUserById(userId) {
 
   const profileCompleteness = getProfileCompleteness(user, user.profile);
   const karmaPoints = user.profile?.karmaPoints || 0;
+  const signedProfile = await uploadService.attachSignedUrlsToProfile(user.profile);
 
   return {
     user: safeUser(user),
-    profile: safeProfile(user.profile),
+    profile: safeProfile(signedProfile),
     summary: {
       role: user.role,
-      username: user.profile?.username || null,
-      avatarUrl: user.profile?.avatarUrl || null,
+      username: signedProfile?.username || null,
+      avatarPath: signedProfile?.avatarPath || null,
+      avatarUrl: signedProfile?.avatarUrl || null,
       karmaPoints,
       profileCompleteness,
       stats: {
         eventsAttended: 0,
         gigsDone: 0,
-        connections: user.profile?.interests?.length || 0,
+        connections: signedProfile?.interests?.length || 0,
       },
     },
   };

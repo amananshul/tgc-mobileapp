@@ -14,6 +14,7 @@ export interface UserData {
 export interface ProfileData {
   id: string;
   intent: ProfileIntent;
+  avatarPath: string | null;
   avatarUrl: string | null;
   username: string | null;
   fullName: string | null;
@@ -60,7 +61,7 @@ export interface MeResponse {
 
 export interface UpdateProfilePayload {
   intent?: Exclude<ProfileIntent, null>;
-  avatarUrl?: string | null;
+  avatarPath?: string | null;
   username?: string;
   fullName?: string;
   city?: string;
@@ -87,7 +88,8 @@ export interface DashboardTribe {
   name: string;
   slug: string;
   members: number;
-  emoji: string;
+  coverImagePath?: string | null;
+  coverImageUrl?: string | null;
 }
 
 // ──── Tribe Types ────────────────────────────────────────
@@ -98,7 +100,8 @@ export interface Tribe {
   name: string;
   slug: string;
   description: string | null;
-  emoji: string;
+  coverImagePath: string | null;
+  coverImageUrl: string | null;
   category: string;
   visibility: 'PUBLIC' | 'PRIVATE';
   memberCount: number;
@@ -141,9 +144,8 @@ export interface MyTribesResponse {
 
 export interface CreateTribePayload {
   name: string;
-  slug: string;
   description?: string;
-  emoji?: string;
+  coverImagePath?: string;
   category?: string;
   visibility?: 'PUBLIC' | 'PRIVATE';
 }
@@ -155,6 +157,7 @@ export interface HostEnableResponse {
 export interface TribePostAuthor {
   username: string | null;
   fullName: string | null;
+  avatarPath: string | null;
   avatarUrl: string | null;
 }
 
@@ -163,6 +166,7 @@ export interface TribePost {
   tribeId: string;
   userId: string;
   content: string;
+  imagePath: string | null;
   imageUrl: string | null;
   createdAt: string;
   author: TribePostAuthor;
@@ -174,7 +178,7 @@ export interface TribePostsResponse {
 
 export interface CreateTribePostPayload {
   content: string;
-  imageUrl?: string;
+  imagePath?: string;
 }
 
 export interface CreateTribePostResponse {

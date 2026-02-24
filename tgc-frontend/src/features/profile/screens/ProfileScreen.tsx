@@ -19,9 +19,12 @@ import { logoutApi } from '../../auth/api/auth.api';
 import { getRefreshToken } from '../../../services/http/tokenStore';
 import { useDashboard } from '../../dashboard/hooks/useDashboard';
 import {useMe} from '../hooks/useMe';
+import {useUploadAvatar} from '../hooks/useUploadAvatar';
 import {useEnableHost} from '../../host/hooks/useEnableHost';
 import {useMyTribes} from '../../tribes/hooks/useMyTribes';
 import {useUIMode} from '../../ui-mode/UIModeProvider';
+import {pickImageFromDevice} from '../../../utils/media/pickImage';
+import TribeCoverAvatar from '../../tribes/components/TribeCoverAvatar';
 import Loader from '../../../components/ui/Loader';
 import Button from '../../../components/ui/Button';
 import SoftGradient from '../../../components/ui/SoftGradient';
@@ -47,6 +50,7 @@ export default function ProfileScreen() {
   const myTribesQuery = useMyTribes();
   const {uiMode, canUseHostMode, setUIMode} = useUIMode();
   const enableHost = useEnableHost();
+  const uploadAvatar = useUploadAvatar();
 
   if (dashboardQuery.isLoading || meQuery.isLoading || myTribesQuery.isLoading) {
     return <Loader color={TGC_COLORS.coral} />;
@@ -130,6 +134,34 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleEditAvatar = async () => {
+    try {
+      const image = await pickImageFromDevice();
+      if (!image) return;
+      console.log('[ProfileScreen] Picked image:', image);
+      await uploadAvatar.mutateAsync(image);
+      Toast.show({
+        type: 'success',
+        text1: 'Avatar updated',
+        position: 'top',
+      });
+    } catch (err: any) {
+      console.error('[ProfileScreen] Avatar upload error:', err);
+      console.error('[ProfileScreen] Error response:', err?.response);
+      console.error('[ProfileScreen] Error message:', err?.message);
+      const message = String(err?.message || '');
+      if (err?.response || /upload/i.test(message)) {
+        return;
+      }
+      Toast.show({
+        type: 'error',
+        text1: 'Avatar update failed',
+        text2: message || 'Could not select image.',
+        position: 'top',
+      });
+    }
+  };
+
   return (
     <AppBackground style={styles.container}>
         <SoftGradient
@@ -159,6 +191,15 @@ export default function ProfileScreen() {
               </Text>
             )}
           </View>
+          <TouchableOpacity
+            onPress={handleEditAvatar}
+            style={styles.avatarEditBtn}
+            activeOpacity={0.8}
+            disabled={uploadAvatar.isPending}>
+            <Text style={styles.avatarEditBtnText}>
+              {uploadAvatar.isPending ? 'Uploading...' : 'Edit Avatar'}
+            </Text>
+          </TouchableOpacity>
 
           <Text style={styles.name} numberOfLines={1}>
             {displayName}
@@ -280,10 +321,8 @@ export default function ProfileScreen() {
             </Text>
           </SurfaceCard>
 
-          <SurfaceCard style={styles.card}>
-            <Text style={styles.cardTitle}>Host Access</Text>
             {shouldShowEnableHost ? (
-              <>
+              <SurfaceCard>
                 <Text style={styles.hostText}>
                   Become a Host to create tribes and build your own community.
                 </Text>
@@ -293,22 +332,9 @@ export default function ProfileScreen() {
                   loading={enableHost.isPending}
                   style={styles.hostPrimaryBtn}
                 />
-              </>
-            ) : (
-              <>
-                <Text style={styles.hostText}>
-                  Host access is enabled. You can create and manage your own tribes.
-                </Text>
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('CreateTribe')}
-                  style={styles.createTribeBtn}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.createTribeBtnText}>Create Tribe</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </SurfaceCard>
+              </SurfaceCard>
+            ) : null}
+      
 
           {isHostMode && canCreateTribes ? (
             <SurfaceCard style={styles.card}>
@@ -367,9 +393,14 @@ export default function ProfileScreen() {
                   style={styles.tribeRow}
                   activeOpacity={0.6}
                 >
-                  <View style={styles.tribeAvatar}>
-                    <Text style={styles.tribeEmoji}>{tribe.emoji}</Text>
-                  </View>
+                  <TribeCoverAvatar
+                    name={tribe.name}
+                    coverImageUrl={tribe.coverImageUrl}
+                    size={52}
+                    borderRadius={26}
+                    containerStyle={styles.tribeAvatar}
+                    initialsTextStyle={styles.tribeInitials}
+                  />
                   <View style={styles.tribeBody}>
                     <Text style={styles.tribeName}>{tribe.name}</Text>
                     <Text style={styles.tribeMembers}>
@@ -470,6 +501,22 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 22,
     fontWeight: '900',
+  },
+  avatarEditBtn: {
+    marginTop: 8,
+    minHeight: 32,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarEditBtnText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '800',
   },
   name: {
     marginTop: 8,

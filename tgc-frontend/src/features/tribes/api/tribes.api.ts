@@ -66,6 +66,17 @@ export async function createTribeApi(
   return data;
 }
 
+export async function updateTribeApi(
+  tribeId: string,
+  payload: {coverImagePath: string | null},
+): Promise<TribeDetailResponse> {
+  const {data} = await client.patch<TribeDetailResponse>(
+    `${ENDPOINTS.TRIBES}/${tribeId}`,
+    payload,
+  );
+  return data;
+}
+
 export async function listTribePostsApi(
   tribeId: string,
 ): Promise<TribePostsResponse> {

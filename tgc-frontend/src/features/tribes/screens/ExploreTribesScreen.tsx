@@ -17,6 +17,7 @@ import AppBackground from '../../../components/ui/AppBackground';
 import SoftGradient from '../../../components/ui/SoftGradient';
 import {useTribes} from '../hooks/useTribes';
 import {useJoinTribe} from '../hooks/useJoinTribe';
+import TribeCoverAvatar from '../components/TribeCoverAvatar';
 import {
   TGC_COLORS,
   TGC_GRADIENTS,
@@ -71,9 +72,14 @@ export default function ExploreTribesScreen() {
       activeOpacity={0.7}
       onPress={() => navigation.navigate('TribeDetail', {slug: item.slug})}>
       <View style={styles.tribeCardTop}>
-        <View style={styles.emojiWrap}>
-          <Text style={styles.emoji}>{item.emoji}</Text>
-        </View>
+        <TribeCoverAvatar
+          name={item.name}
+          coverImageUrl={item.coverImageUrl}
+          size={48}
+          borderRadius={24}
+          containerStyle={styles.avatarWrap}
+          initialsTextStyle={styles.avatarInitials}
+        />
         <View style={styles.tribeInfo}>
           <Text style={styles.tribeName}>{item.name}</Text>
           <View style={styles.membersRow}>
@@ -285,16 +291,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  emojiWrap: {
+  avatarWrap: {
     width: 48,
     height: 48,
-    borderRadius: 16,
+    borderRadius: 24,
     backgroundColor: 'rgba(200,182,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emoji: {
-    fontSize: 24,
+  avatarInitials: {
+    fontSize: 18,
   },
   tribeInfo: {
     flex: 1,

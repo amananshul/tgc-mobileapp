@@ -1,17 +1,21 @@
 const prisma = require("../../prisma/prisma");
+const uploadService = require("../uploads/upload.service");
 
-function toTribePostResponse(post) {
+async function toTribePostResponse(post) {
+  const signed = await uploadService.attachSignedUrlsToTribePost(post);
   return {
-    id: post.id,
-    tribeId: post.tribeId,
-    userId: post.userId,
-    content: post.content,
-    imageUrl: post.imageUrl,
-    createdAt: post.createdAt,
+    id: signed.id,
+    tribeId: signed.tribeId,
+    userId: signed.userId,
+    content: signed.content,
+    imagePath: signed.imagePath,
+    imageUrl: signed.imageUrl,
+    createdAt: signed.createdAt,
     author: {
-      username: post.user?.profile?.username || null,
-      fullName: post.user?.profile?.fullName || null,
-      avatarUrl: post.user?.profile?.avatarUrl || null,
+      username: signed.author?.username || null,
+      fullName: signed.author?.fullName || null,
+      avatarPath: signed.author?.avatarPath || null,
+      avatarUrl: signed.author?.avatarUrl || null,
     },
   };
 }
@@ -53,7 +57,7 @@ async function listTribePosts(tribeId, userId) {
             select: {
               username: true,
               fullName: true,
-              avatarUrl: true,
+              avatarPath: true,
             },
           },
         },
@@ -61,18 +65,24 @@ async function listTribePosts(tribeId, userId) {
     },
   });
 
-  return { posts: posts.map(toTribePostResponse) };
+  return { posts: await Promise.all(posts.map(toTribePostResponse)) };
 }
 
 async function createTribePost(tribeId, userId, data) {
   await ensureMember(tribeId, userId);
+
+  uploadService.assertStoragePathMatchesPurpose({
+    pathValue: data.imagePath,
+    purpose: "tribe-post",
+    tribeId,
+  });
 
   const post = await prisma.tribePost.create({
     data: {
       tribeId,
       userId,
       content: data.content,
-      imageUrl: data.imageUrl || null,
+      imagePath: data.imagePath || null,
     },
     include: {
       user: {
@@ -81,7 +91,7 @@ async function createTribePost(tribeId, userId, data) {
             select: {
               username: true,
               fullName: true,
-              avatarUrl: true,
+              avatarPath: true,
             },
           },
         },
@@ -89,7 +99,7 @@ async function createTribePost(tribeId, userId, data) {
     },
   });
 
-  return { post: toTribePostResponse(post) };
+  return { post: await toTribePostResponse(post) };
 }
 
 module.exports = { listTribePosts, createTribePost };

@@ -11,5 +11,6 @@ export const ENDPOINTS = {
   HOST_ENABLE: '/host/enable',
   TRIBES: '/tribes',
   TRIBES_MY: '/tribes/my',
-  UPLOAD_AVATAR: '/uploads/avatar',
+  UPLOADS_PRESIGN: '/uploads/presign',
+  UPLOADS_VIEW_URL: '/uploads/view-url',
 } as const;

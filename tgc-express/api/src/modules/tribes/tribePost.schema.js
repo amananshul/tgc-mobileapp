@@ -6,8 +6,8 @@ const createTribePostSchema = z.object({
     .trim()
     .min(1, "Content is required")
     .max(2000, "Content must be 2000 characters or less"),
-  imageUrl: z
-    .union([z.string().trim().url("imageUrl must be a valid URL"), z.literal("")])
+  imagePath: z
+    .union([z.string().trim().min(1, "imagePath is required"), z.literal("")])
     .optional()
     .transform((value) => (value ? value : undefined)),
 });

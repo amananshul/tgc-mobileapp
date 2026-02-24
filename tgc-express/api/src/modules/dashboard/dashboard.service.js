@@ -1,5 +1,6 @@
 const prisma = require("../../prisma/prisma");
 const { safeUser, safeProfile } = require("../../utils/safeTransform");
+const uploadService = require("../uploads/upload.service");
 
 function getCompleteness(user, profile) {
   const checks = [
@@ -29,6 +30,7 @@ async function getDashboard(userId) {
   }
 
   const profile = user.profile;
+  const signedProfile = await uploadService.attachSignedUrlsToProfile(profile);
   const completeness = getCompleteness(user, profile);
   const isHostMode = profile.activeMode === "HOST";
   const displayName =
@@ -57,7 +59,7 @@ async function getDashboard(userId) {
 
   return {
     user: safeUser(user),
-    profile: safeProfile(profile),
+    profile: safeProfile(signedProfile),
     mode: profile.activeMode,
     profileCompleteness: completeness,
     welcome: {
@@ -137,20 +139,34 @@ async function getDashboard(userId) {
       activeGigs: 0,
       pendingApprovals: 0,
     },
-    tribes: userTribes.map((ut) => ({
-      id: ut.tribe.id,
-      name: ut.tribe.name,
-      slug: ut.tribe.slug,
-      members: ut.tribe.memberCount,
-      emoji: ut.tribe.emoji,
-    })),
-    tribesPreview: userTribes.map((ut) => ({
-      id: ut.tribe.id,
-      name: ut.tribe.name,
-      slug: ut.tribe.slug,
-      members: ut.tribe.memberCount,
-      emoji: ut.tribe.emoji,
-    })),
+    tribes: await Promise.all(
+      userTribes.map(async (ut) => {
+        const signedTribe = await uploadService.attachSignedUrlsToTribe(ut.tribe);
+        return {
+          id: signedTribe.id,
+          name: signedTribe.name,
+          slug: signedTribe.slug,
+          members: signedTribe.memberCount,
+          emoji: signedTribe.emoji,
+          coverImagePath: signedTribe.coverImagePath,
+          coverImageUrl: signedTribe.coverImageUrl,
+        };
+      })
+    ),
+    tribesPreview: await Promise.all(
+      userTribes.map(async (ut) => {
+        const signedTribe = await uploadService.attachSignedUrlsToTribe(ut.tribe);
+        return {
+          id: signedTribe.id,
+          name: signedTribe.name,
+          slug: signedTribe.slug,
+          members: signedTribe.memberCount,
+          emoji: signedTribe.emoji,
+          coverImagePath: signedTribe.coverImagePath,
+          coverImageUrl: signedTribe.coverImageUrl,
+        };
+      })
+    ),
     hostModeCard: {
       title: user.role === "HOST" || user.role === "ADMIN" ? "Host Tools Ready" : "Become a Host",
       subtitle:

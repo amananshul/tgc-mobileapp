@@ -2,7 +2,7 @@ const { z } = require("zod");
 
 const updateProfileSchema = z.object({
   intent: z.enum(["LEARN", "EARN", "ENTERTAIN"]).optional(),
-  avatarUrl: z.string().url("Avatar URL must be a valid URL").max(512).nullable().optional(),
+  avatarPath: z.string().trim().min(1).max(1024).nullable().optional(),
   username: z
     .string()
     .trim()

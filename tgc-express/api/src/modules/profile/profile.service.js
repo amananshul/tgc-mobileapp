@@ -1,5 +1,6 @@
 const prisma = require("../../prisma/prisma");
 const { safeProfile } = require("../../utils/safeTransform");
+const uploadService = require("../uploads/upload.service");
 
 function normalizeText(value) {
   if (typeof value !== "string") return value;
@@ -43,7 +44,14 @@ async function updateProfile(userId, data) {
 
   const patch = {};
   if ("intent" in data) patch.intent = data.intent || null;
-  if ("avatarUrl" in data) patch.avatarUrl = data.avatarUrl || null;
+  if ("avatarPath" in data) {
+    uploadService.assertStoragePathMatchesPurpose({
+      pathValue: data.avatarPath,
+      purpose: "profile",
+      userId,
+    });
+    patch.avatarPath = data.avatarPath || null;
+  }
   if ("username" in data) patch.username = normalizeText(data.username)?.toLowerCase() || null;
   if ("fullName" in data) patch.fullName = normalizeText(data.fullName);
   if ("city" in data) patch.city = normalizeText(data.city);
@@ -82,7 +90,8 @@ async function updateProfile(userId, data) {
     throw err;
   }
 
-  return { profile: safeProfile(updated) };
+  const signedProfile = await uploadService.attachSignedUrlsToProfile(updated);
+  return { profile: safeProfile(signedProfile) };
 }
 
 module.exports = { updateProfile };

@@ -28,6 +28,7 @@ import SurfaceCard from '../../../components/ui/SurfaceCard';
 import { useMe } from '../../profile/hooks/useMe';
 import {useEnableHost} from '../../host/hooks/useEnableHost';
 import {useUIMode} from '../../ui-mode/UIModeProvider';
+import TribeCoverAvatar from '../../tribes/components/TribeCoverAvatar';
 import {
   TGC_COLORS,
   TGC_GRADIENTS,
@@ -325,9 +326,14 @@ export default function DashboardScreen({
                   style={styles.tribeRow}
                   activeOpacity={0.6}
                 >
-                  <View style={styles.tribeAvatar}>
-                    <Text style={styles.tribeEmoji}>{tribe.emoji}</Text>
-                  </View>
+                  <TribeCoverAvatar
+                    name={tribe.name}
+                    coverImageUrl={tribe.coverImageUrl}
+                    size={48}
+                    borderRadius={24}
+                    containerStyle={styles.tribeAvatar}
+                    initialsTextStyle={styles.tribeInitials}
+                  />
                   <View style={styles.tribeBody}>
                     <Text style={styles.tribeName}>{tribe.name}</Text>
                     <Text style={styles.tribeMembers}>
@@ -413,6 +419,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: TGC_COLORS.bgPrimary,
+    marginBottom:22
   },
   content: {
     paddingTop: 0,
@@ -672,16 +679,16 @@ const styles = StyleSheet.create({
     borderBottomColor: TGC_COLORS.border,
   },
   tribeAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: TGC_COLORS.bgSecondary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
-  tribeEmoji: {
-    fontSize: 20,
+  tribeInitials: {
+    fontSize: 18,
   },
   tribeBody: {
     flex: 1,

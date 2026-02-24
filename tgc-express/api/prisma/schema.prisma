@@ -70,7 +70,7 @@ model Profile {
   id             String   @id @default(uuid())
   userId         String   @unique
   intent         ProfileIntent?
-  avatarUrl      String?
+  avatarPath     String?
   username       String?  @unique
   fullName       String?
   city           String?
@@ -91,7 +91,7 @@ model Tribe {
   name          String          @unique
   slug          String          @unique
   description   String?         @db.VarChar(300)
-  emoji         String          @default("🌟")
+  coverImagePath String?
   category      String          @default("general")
   visibility    TribeVisibility @default(PUBLIC)
   memberCount   Int             @default(0)
@@ -127,7 +127,7 @@ model TribePost {
   tribeId    String
   userId     String
   content    String   @db.VarChar(2000)
-  imageUrl   String?
+  imagePath  String?
   createdAt  DateTime @default(now())
 
   tribe      Tribe    @relation(fields: [tribeId], references: [id], onDelete: Cascade)

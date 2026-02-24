@@ -11,6 +11,7 @@ import type {OnboardingStackParamList} from '../../../app/navigation/OnboardingS
 import {useAppSelector} from '../../../store/hooks';
 import {useUpdateProfile} from '../../profile/hooks/useUpdateProfile';
 import {useUploadAvatar} from '../../profile/hooks/useUploadAvatar';
+import {pickImageFromDevice} from '../../../utils/media/pickImage';
 
 type Props = {
   navigation: NativeStackNavigationProp<OnboardingStackParamList, 'Identity'>;
@@ -18,14 +19,13 @@ type Props = {
 
 export default function IdentityScreen({navigation}: Props) {
   const profile = useAppSelector(state => state.auth.profile);
+  const [avatarPath, setAvatarPath] = useState(profile?.avatarPath ?? '');
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatarUrl ?? '');
-  const [uploadSource, setUploadSource] = useState(profile?.avatarUrl ?? '');
   const [username, setUsername] = useState(profile?.username ?? '');
   const [fullName, setFullName] = useState(profile?.fullName ?? '');
   const [city, setCity] = useState(profile?.city ?? '');
   const [bio, setBio] = useState(profile?.bio ?? '');
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [showAvatarField, setShowAvatarField] = useState(true);
 
   const updateProfile = useUpdateProfile();
   const uploadAvatar = useUploadAvatar();
@@ -43,6 +43,9 @@ export default function IdentityScreen({navigation}: Props) {
 
   const validate = () => {
     const nextErrors: Record<string, string> = {};
+    if (!avatarPath.trim()) {
+      nextErrors.avatar = 'Profile avatar is required';
+    }
     if (!username.trim() || username.trim().length < 3) {
       nextErrors.username = 'Username must be at least 3 characters';
     }
@@ -67,7 +70,6 @@ export default function IdentityScreen({navigation}: Props) {
 
     updateProfile.mutate(
       {
-        avatarUrl: avatarUrl.trim() || null,
         username: username.trim().toLowerCase(),
         fullName: fullName.trim(),
         city: city.trim(),
@@ -83,36 +85,31 @@ export default function IdentityScreen({navigation}: Props) {
     );
   };
 
-  const handleUploadAvatar = () => {
-    const value = uploadSource.trim();
-    if (!value) {
-      Toast.show({
-        type: 'error',
-        text1: 'Upload source required',
-        text2: 'Paste a public image URL or a base64 data URI.',
-      });
-      return;
-    }
+  const handleUploadAvatar = async () => {
+    try {
+      const pickedImage = await pickImageFromDevice();
+      if (!pickedImage) return;
 
-    const payload = value.startsWith('data:image/')
-      ? {imageData: value}
-      : {sourceUrl: value};
-
-    uploadAvatar.mutate(payload, {
+      uploadAvatar.mutate(pickedImage, {
       onSuccess: data => {
-        setAvatarUrl(data.avatarUrl);
-        setUploadSource(data.avatarUrl);
+          setAvatarPath(data.profile.avatarPath ?? '');
+          setAvatarUrl(data.profile.avatarUrl ?? '');
+          setErrors(prev => {
+            const next = {...prev};
+            delete next.avatar;
+            return next;
+          });
         Toast.show({
           type: 'success',
           text1: 'Avatar uploaded',
-          text2: 'Your profile photo is now attached.',
+          text2: 'Your profile photo is ready.',
         });
       },
-      onError: (err: any) => {
-        const msg = err?.response?.data?.message || 'Could not upload avatar.';
-        Toast.show({type: 'error', text1: 'Error', text2: msg});
-      },
-    });
+      });
+    } catch (err: any) {
+      const msg = err?.message || 'Could not open image picker.';
+      Toast.show({type: 'error', text1: 'Error', text2: msg});
+    }
   };
 
   return (
@@ -131,7 +128,7 @@ export default function IdentityScreen({navigation}: Props) {
       <SurfaceCard style={styles.identityCard}>
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={() => setShowAvatarField(v => !v)}
+          onPress={handleUploadAvatar}
           style={styles.avatarContainer}>
           {avatarUrl ? (
             <Image source={{uri: avatarUrl}} style={styles.avatarImage} resizeMode="cover" />
@@ -141,38 +138,24 @@ export default function IdentityScreen({navigation}: Props) {
         </TouchableOpacity>
 
         <Text style={styles.microcopy}>Faces build trust in communities.</Text>
+        {errors.avatar ? <Text style={styles.avatarError}>{errors.avatar}</Text> : null}
 
         <TouchableOpacity
-          onPress={() => setShowAvatarField(v => !v)}
+          onPress={handleUploadAvatar}
           style={styles.avatarAction}
-          activeOpacity={0.85}>
+          activeOpacity={0.85}
+          disabled={uploadAvatar.isPending}>
           <Text style={styles.avatarActionText}>
-            {showAvatarField ? 'Hide Upload' : 'Upload Avatar'}
+            {uploadAvatar.isPending
+              ? 'Uploading...'
+              : avatarPath
+                ? 'Change Avatar'
+                : 'Choose Avatar Photo'}
           </Text>
         </TouchableOpacity>
-
-        {showAvatarField && (
-          <>
-            <Input
-              label="Avatar Upload Source"
-              placeholder="https://... or data:image/png;base64,..."
-              value={uploadSource}
-              onChangeText={setUploadSource}
-              autoCapitalize="none"
-            />
-            <Button
-              title="Upload Avatar"
-              onPress={handleUploadAvatar}
-              loading={uploadAvatar.isPending}
-              variant="outline"
-              compact
-              style={styles.uploadBtn}
-            />
-            <Text style={styles.uploadHint}>
-              Image is stored on your server and profile avatarUrl updates automatically.
-            </Text>
-          </>
-        )}
+        <Text style={styles.uploadHint}>
+          Pick a photo from your device. We compress it before upload to save data.
+        </Text>
 
         <Input
           label="Username"
@@ -267,6 +250,13 @@ const styles = StyleSheet.create({
     color: TGC_COLORS.textSecondary,
     fontSize: 12,
     fontWeight: '700',
+  },
+  avatarError: {
+    textAlign: 'center',
+    color: '#D14A4A',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 8,
   },
   uploadBtn: {
     marginTop: 2,

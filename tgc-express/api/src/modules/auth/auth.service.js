@@ -3,6 +3,7 @@ const { hashPassword, comparePassword } = require("../../utils/password");
 const { signAccessToken, signRefreshToken, verifyRefreshToken, hashToken } = require("../../utils/tokens");
 const { generateOtp, otpExpiryDate, TEST_OTP } = require("../../utils/otp");
 const { safeUser, safeProfile } = require("../../utils/safeTransform");
+const uploadService = require("../uploads/upload.service");
 
 function normalizeEmail(value) {
   if (typeof value !== "string") return null;
@@ -101,6 +102,7 @@ async function registerUser(payload) {
 
   const accessToken = signAccessToken(user);
   const refreshToken = signRefreshToken(user);
+  const signedProfile = await uploadService.attachSignedUrlsToProfile(user.profile);
 
   // Store hashed refresh token in DB
   await prisma.refreshToken.create({
@@ -115,7 +117,7 @@ async function registerUser(payload) {
     accessToken,
     refreshToken,
     user: safeUser(user),
-    profile: safeProfile(user.profile),
+    profile: safeProfile(signedProfile),
     ...(otp ? { _testOtp: otp } : {}),
     message: otp
       ? `OTP sent to ${phone}. In test mode use: ${TEST_OTP}`
@@ -156,6 +158,7 @@ async function loginUser(payload) {
 
   const accessToken = signAccessToken(user);
   const refreshToken = signRefreshToken(user);
+  const signedProfile = await uploadService.attachSignedUrlsToProfile(user.profile);
 
   await prisma.refreshToken.create({
     data: {
@@ -169,7 +172,7 @@ async function loginUser(payload) {
     accessToken,
     refreshToken,
     user: safeUser(user),
-    profile: safeProfile(user.profile),
+    profile: safeProfile(signedProfile),
   };
 }
 
@@ -285,7 +288,7 @@ async function refreshTokens({ refreshToken }) {
     accessToken: newAccessToken,
     refreshToken: newRefreshToken,
     user: safeUser(user),
-    profile: safeProfile(user.profile),
+    profile: safeProfile(await uploadService.attachSignedUrlsToProfile(user.profile)),
   };
 }
 

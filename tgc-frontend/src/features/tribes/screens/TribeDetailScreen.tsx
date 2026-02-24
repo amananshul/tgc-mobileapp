@@ -9,11 +9,14 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
+import {useMutation, useQueryClient} from '@tanstack/react-query';
+import Toast from 'react-native-toast-message';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {ArrowLeft, Users, Tag, Shield} from 'lucide-react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import type {RouteProp} from '@react-navigation/native';
+import {useAppSelector} from '../../../store/hooks';
 import AppBackground from '../../../components/ui/AppBackground';
 import SoftGradient from '../../../components/ui/SoftGradient';
 import SurfaceCard from '../../../components/ui/SurfaceCard';
@@ -24,6 +27,7 @@ import {useLeaveTribe} from '../hooks/useLeaveTribe';
 import {useTribePosts} from '../hooks/useTribePosts';
 import {useCreateTribePost} from '../hooks/useCreateTribePost';
 import CreatePostModal from '../components/CreatePostModal';
+import TribeCoverAvatar from '../components/TribeCoverAvatar';
 import {
   TGC_COLORS,
   TGC_GRADIENTS,
@@ -33,6 +37,8 @@ import {
 } from '../../../theme/tgcTheme';
 import type {CreateTribePostPayload, TribePost} from '../../../types/auth';
 import type {AppStackParamList} from '../../../app/navigation/AppStack';
+import {pickImageFromDevice} from '../../../utils/media/pickImage';
+import {uploadAndAttachTribeCover} from '../../../services/mediaUpload.service';
 
 type DetailRoute = RouteProp<AppStackParamList, 'TribeDetail'>;
 
@@ -55,9 +61,11 @@ function getAuthorName(post: TribePost) {
 
 export default function TribeDetailScreen() {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const navigation =
     useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const route = useRoute<DetailRoute>();
+  const authUser = useAppSelector(state => state.auth.user);
   const {slug} = route.params;
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
 
@@ -68,6 +76,44 @@ export default function TribeDetailScreen() {
   const tribe = data?.tribe;
   const postsQuery = useTribePosts(tribe?.id, !!tribe?.isJoined);
   const createTribePost = useCreateTribePost(tribe?.id);
+  const updateCover = useMutation({
+    mutationFn: async () => {
+      if (!tribe?.id) {
+        throw new Error('Missing tribe id');
+      }
+      const pickedImage = await pickImageFromDevice();
+      if (!pickedImage) {
+        return null;
+      }
+      return uploadAndAttachTribeCover(tribe.id, pickedImage);
+    },
+    onSuccess: async result => {
+      if (!result) return;
+      await Promise.all([
+        queryClient.invalidateQueries({queryKey: ['tribe', slug]}),
+        queryClient.invalidateQueries({queryKey: ['tribes']}),
+        queryClient.invalidateQueries({queryKey: ['myTribes']}),
+        queryClient.invalidateQueries({queryKey: ['dashboard']}),
+      ]);
+      Toast.show({
+        type: 'success',
+        text1: 'Cover updated',
+        position: 'top',
+      });
+    },
+    onError: (error: any) => {
+      const msg =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Could not update cover image.';
+      Toast.show({
+        type: 'error',
+        text1: 'Cover update failed',
+        text2: msg,
+        position: 'top',
+      });
+    },
+  });
 
   const handleJoin = useCallback(() => {
     if (tribe) {
@@ -100,6 +146,12 @@ export default function TribeDetailScreen() {
   );
 
   const posts = useMemo(() => postsQuery.data?.posts ?? [], [postsQuery.data]);
+  const canChangeCover =
+    !!tribe &&
+    (tribe.memberRole === 'OWNER' ||
+      tribe.memberRole === 'MODERATOR' ||
+      authUser?.role === 'HOST' ||
+      authUser?.role === 'ADMIN');
 
   if (isLoading) {
     return <Loader color={TGC_COLORS.lavender} />;
@@ -142,46 +194,138 @@ export default function TribeDetailScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        <SoftGradient
-          colors={TGC_GRADIENTS.lavender}
-          style={[styles.header, {paddingTop: insets.top + 12}]}
-          intensity={0.56}>
-          <View style={styles.headerRow}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.backBtn}>
-              <ArrowLeft size={22} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Tribe</Text>
-            <View style={styles.backBtn} />
-          </View>
-
-          <View style={styles.emojiCircle}>
-            <Text style={styles.emoji}>{tribe.emoji}</Text>
-          </View>
-
-          <Text style={styles.tribeName}>{tribe.name}</Text>
-
-          <View style={styles.badgesRow}>
-            <View style={styles.categoryBadge}>
-              <Tag size={12} color={TGC_COLORS.textPrimary} />
-              <Text style={styles.categoryText}>{tribe.category}</Text>
-            </View>
-            {tribe.visibility === 'PRIVATE' && (
-              <View style={styles.privateBadge}>
-                <Shield size={12} color="#fff" />
-                <Text style={styles.privateText}>Private</Text>
+        {tribe.coverImageUrl ? (
+          <View style={styles.coverHeader}>
+            <Image
+              source={{uri: tribe.coverImageUrl}}
+              style={styles.coverImage}
+              resizeMode="cover"
+            />
+            <View style={styles.coverOverlay} />
+            <View style={[styles.coverContent, {paddingTop: insets.top + 12}]}>
+              <View style={styles.headerRow}>
+                <TouchableOpacity
+                  onPress={() => navigation.goBack()}
+                  style={styles.backBtn}>
+                  <ArrowLeft size={22} color="#fff" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Tribe</Text>
+                <View style={styles.backBtn} />
               </View>
-            )}
-          </View>
 
-          <View style={styles.membersBadge}>
-            <Users size={14} color="rgba(255,255,255,0.9)" />
-            <Text style={styles.membersText}>
-              {tribe.memberCount} {tribe.memberCount === 1 ? 'member' : 'members'}
-            </Text>
+              <TribeCoverAvatar
+                name={tribe.name}
+                coverImageUrl={tribe.coverImageUrl}
+                size={96}
+                borderRadius={48}
+                containerStyle={styles.avatarCircle}
+                initialsTextStyle={styles.avatarInitials}
+              />
+
+              <Text style={styles.tribeName}>{tribe.name}</Text>
+
+              <View style={styles.badgesRow}>
+                <View style={styles.categoryBadge}>
+                  <Tag size={12} color={TGC_COLORS.textPrimary} />
+                  <Text style={styles.categoryText}>{tribe.category}</Text>
+                </View>
+                {tribe.visibility === 'PRIVATE' && (
+                  <View style={styles.privateBadge}>
+                    <Shield size={12} color="#fff" />
+                    <Text style={styles.privateText}>Private</Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.membersBadge}>
+                <Users size={14} color="rgba(255,255,255,0.9)" />
+                <Text style={styles.membersText}>
+                  {tribe.memberCount}{' '}
+                  {tribe.memberCount === 1 ? 'member' : 'members'}
+                </Text>
+              </View>
+              {canChangeCover ? (
+                <TouchableOpacity
+                  style={[
+                    styles.changeCoverBtn,
+                    updateCover.isPending && styles.changeCoverBtnDisabled,
+                  ]}
+                  onPress={() => updateCover.mutate()}
+                  activeOpacity={0.8}
+                  disabled={updateCover.isPending}>
+                  <Text style={styles.changeCoverBtnText}>
+                    {updateCover.isPending
+                      ? 'Uploading Cover...'
+                      : 'Change Cover'}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
           </View>
-        </SoftGradient>
+        ) : (
+          <SoftGradient
+            colors={TGC_GRADIENTS.lavender}
+            style={[styles.header, {paddingTop: insets.top + 12}]}
+            intensity={0.56}>
+            <View style={styles.headerRow}>
+              <TouchableOpacity
+                onPress={() => navigation.goBack()}
+                style={styles.backBtn}>
+                <ArrowLeft size={22} color="#fff" />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>Tribe</Text>
+              <View style={styles.backBtn} />
+            </View>
+
+            <TribeCoverAvatar
+              name={tribe.name}
+              coverImageUrl={tribe.coverImageUrl}
+              size={96}
+              borderRadius={48}
+              containerStyle={styles.avatarCircle}
+              initialsTextStyle={styles.avatarInitials}
+            />
+
+            <Text style={styles.tribeName}>{tribe.name}</Text>
+
+            <View style={styles.badgesRow}>
+              <View style={styles.categoryBadge}>
+                <Tag size={12} color={TGC_COLORS.textPrimary} />
+                <Text style={styles.categoryText}>{tribe.category}</Text>
+              </View>
+              {tribe.visibility === 'PRIVATE' && (
+                <View style={styles.privateBadge}>
+                  <Shield size={12} color="#fff" />
+                  <Text style={styles.privateText}>Private</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.membersBadge}>
+              <Users size={14} color="rgba(255,255,255,0.9)" />
+              <Text style={styles.membersText}>
+                {tribe.memberCount}{' '}
+                {tribe.memberCount === 1 ? 'member' : 'members'}
+              </Text>
+            </View>
+            {canChangeCover ? (
+              <TouchableOpacity
+                style={[
+                  styles.changeCoverBtn,
+                  updateCover.isPending && styles.changeCoverBtnDisabled,
+                ]}
+                onPress={() => updateCover.mutate()}
+                activeOpacity={0.8}
+                disabled={updateCover.isPending}>
+                <Text style={styles.changeCoverBtnText}>
+                  {updateCover.isPending
+                    ? 'Uploading Cover...'
+                    : 'Change Cover'}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </SoftGradient>
+        )}
 
         <View style={styles.body}>
           {tribe.description ? (
@@ -329,6 +473,7 @@ export default function TribeDetailScreen() {
           </TouchableOpacity>
           <CreatePostModal
             visible={isCreatePostOpen}
+            tribeId={tribe.id}
             onClose={() => setIsCreatePostOpen(false)}
             loading={createTribePost.isPending}
             onSubmit={handleCreatePost}
@@ -345,6 +490,28 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 120,
+  },
+  coverHeader: {
+    minHeight: 260,
+    position: 'relative',
+  },
+  coverImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+  },
+  coverOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+  },
+  coverContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 28,
+    alignItems: 'center',
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
   header: {
     borderBottomLeftRadius: 28,
@@ -378,10 +545,10 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(45,42,38,0.14)',
     textShadowRadius: 6,
   },
-  emojiCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  avatarCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     backgroundColor: 'rgba(255,255,255,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -389,8 +556,9 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: 'rgba(255,255,255,0.4)',
   },
-  emoji: {
-    fontSize: 38,
+  avatarInitials: {
+    fontSize: 36,
+    color: '#fff',
   },
   tribeName: {
     marginTop: 14,
@@ -445,6 +613,25 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.9)',
     fontSize: 14,
     fontWeight: '700',
+  },
+  changeCoverBtn: {
+    marginTop: 12,
+    minHeight: 34,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  changeCoverBtnDisabled: {
+    opacity: 0.8,
+  },
+  changeCoverBtnText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
   },
   body: {
     paddingHorizontal: TGC_SPACING.pageHorizontal,

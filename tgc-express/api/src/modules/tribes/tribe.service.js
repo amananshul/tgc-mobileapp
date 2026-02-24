@@ -3,24 +3,49 @@ const {
   safeTribe,
   safeTribeWithMembership,
 } = require("../../utils/safeTransform");
+const uploadService = require("../uploads/upload.service");
+
+function slugify(text) {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+async function generateUniqueSlug(baseName) {
+  let slug = slugify(baseName);
+  if (!slug || slug.length < 2) {
+    slug = "tribe-" + Date.now();
+  }
+
+  let finalSlug = slug;
+  let counter = 2;
+
+  while (true) {
+    const existing = await prisma.tribe.findUnique({
+      where: { slug: finalSlug },
+    });
+    if (!existing) break;
+    finalSlug = `${slug}-${counter}`;
+    counter++;
+  }
+
+  return finalSlug;
+}
 
 async function createTribe(userId, data) {
-  const existing = await prisma.tribe.findUnique({
-    where: { slug: data.slug },
-  });
-  if (existing) {
-    const err = new Error("A tribe with this slug already exists");
-    err.statusCode = 409;
-    throw err;
-  }
+  const slug = await generateUniqueSlug(data.name);
 
   const tribe = await prisma.$transaction(async (tx) => {
     const newTribe = await tx.tribe.create({
       data: {
         name: data.name,
-        slug: data.slug,
+        slug,
         description: data.description || null,
-        emoji: data.emoji || "🌟",
+        coverImagePath: data.coverImagePath || null,
         category: data.category || "general",
         visibility: data.visibility || "PUBLIC",
         memberCount: 1,
@@ -39,7 +64,8 @@ async function createTribe(userId, data) {
     return newTribe;
   });
 
-  return { tribe: safeTribe(tribe) };
+  const signedTribe = await uploadService.attachSignedUrlsToTribe(tribe);
+  return { tribe: safeTribe(signedTribe) };
 }
 
 async function listTribes(userId, { search, category, page = 1, limit = 20 }) {
@@ -70,8 +96,10 @@ async function listTribes(userId, { search, category, page = 1, limit = 20 }) {
     prisma.tribe.count({ where }),
   ]);
 
+  const signedTribes = await uploadService.attachSignedUrlsToTribes(tribes);
+
   return {
-    tribes: tribes.map((t) => safeTribeWithMembership(t, userId)),
+    tribes: signedTribes.map((t) => safeTribeWithMembership(t, userId)),
     pagination: {
       page,
       limit,
@@ -98,7 +126,8 @@ async function getTribeBySlug(slug, userId) {
     throw err;
   }
 
-  return { tribe: safeTribeWithMembership(tribe, userId) };
+  const signedTribe = await uploadService.attachSignedUrlsToTribe(tribe);
+  return { tribe: safeTribeWithMembership(signedTribe, userId) };
 }
 
 async function joinTribe(userId, tribeId) {
@@ -136,9 +165,11 @@ async function joinTribe(userId, tribeId) {
     return { tribe: updatedTribe, karmaPoints: updatedProfile.karmaPoints };
   });
 
+  const signedTribe = await uploadService.attachSignedUrlsToTribe(result.tribe);
+
   return {
     message: "Joined tribe successfully",
-    tribe: safeTribe(result.tribe),
+    tribe: safeTribe(signedTribe),
     karmaPoints: result.karmaPoints,
   };
 }
@@ -181,12 +212,71 @@ async function getMyTribes(userId) {
   });
 
   return {
-    tribes: memberships.map((m) => ({
-      ...safeTribe(m.tribe),
-      memberRole: m.role,
-      joinedAt: m.joinedAt,
-    })),
+    tribes: await Promise.all(
+      memberships.map(async (m) => {
+        const signedTribe = await uploadService.attachSignedUrlsToTribe(m.tribe);
+        return {
+          ...safeTribe(signedTribe),
+          memberRole: m.role,
+          joinedAt: m.joinedAt,
+        };
+      })
+    ),
   };
+}
+
+async function updateTribe(userId, tribeId, data) {
+  const [user, membership, tribe] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true },
+    }),
+    prisma.userTribe.findUnique({
+      where: { userId_tribeId: { userId, tribeId } },
+      select: { role: true },
+    }),
+    prisma.tribe.findUnique({
+      where: { id: tribeId },
+    }),
+  ]);
+
+  if (!tribe) {
+    const err = new Error("Tribe not found");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const isAppPrivileged = user && ["HOST", "ADMIN"].includes(user.role);
+  const isTribePrivileged = membership && ["OWNER", "MODERATOR"].includes(membership.role);
+  if (!isAppPrivileged && !isTribePrivileged) {
+    const err = new Error("Forbidden");
+    err.statusCode = 403;
+    throw err;
+  }
+
+  const patch = {};
+  if ("coverImagePath" in data) {
+    uploadService.assertStoragePathMatchesPurpose({
+      pathValue: data.coverImagePath,
+      purpose: "tribe-cover",
+      tribeId,
+    });
+    patch.coverImagePath = data.coverImagePath || null;
+  }
+
+  const updated = await prisma.tribe.update({
+    where: { id: tribeId },
+    data: patch,
+    include: {
+      members: {
+        where: { userId },
+        select: { userId: true, role: true },
+      },
+    },
+  });
+
+  const signedTribe = await uploadService.attachSignedUrlsToTribe(updated);
+  return { tribe: safeTribeWithMembership(signedTribe, userId) };
 }
 
 module.exports = {
@@ -196,4 +286,5 @@ module.exports = {
   joinTribe,
   leaveTribe,
   getMyTribes,
+  updateTribe,
 };

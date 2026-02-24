@@ -1,16 +1,31 @@
-const { z } = require('zod');
+const { z } = require("zod");
+const { ALLOWED_IMAGE_MIME_TYPES, MAX_UPLOAD_BYTES } = require("./upload.service");
 
-const uploadAvatarSchema = z
+const presignUploadSchema = z
   .object({
-    sourceUrl: z.string().url('sourceUrl must be a valid URL').optional(),
-    imageData: z
+    purpose: z.enum(["profile", "tribe-cover", "tribe-post"]),
+    fileName: z.string().trim().min(1, "fileName is required").max(255),
+    mimeType: z
       .string()
-      .regex(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, 'imageData must be a valid image data URI')
-      .optional(),
+      .trim()
+      .refine((value) => ALLOWED_IMAGE_MIME_TYPES.has(value), {
+        message: `mimeType must be one of: ${Array.from(ALLOWED_IMAGE_MIME_TYPES).join(", ")}`,
+      }),
+    tribeId: z.string().trim().min(1).optional(),
+    fileSize: z.coerce.number().int().positive().max(MAX_UPLOAD_BYTES).optional(),
   })
-  .refine(data => Boolean(data.sourceUrl || data.imageData), {
-    message: 'Provide sourceUrl or imageData',
-    path: ['sourceUrl'],
+  .superRefine((data, ctx) => {
+    if (data.purpose.startsWith("tribe-") && !data.tribeId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["tribeId"],
+        message: "tribeId is required for tribe uploads",
+      });
+    }
   });
 
-module.exports = { uploadAvatarSchema };
+const viewUrlQuerySchema = z.object({
+  path: z.string().trim().min(1, "path is required").max(1024),
+});
+
+module.exports = { presignUploadSchema, viewUrlQuerySchema };

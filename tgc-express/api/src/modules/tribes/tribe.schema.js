@@ -6,17 +6,8 @@ const createTribeSchema = z.object({
     .trim()
     .min(2, "Name must be at least 2 characters")
     .max(60),
-  slug: z
-    .string()
-    .trim()
-    .min(2)
-    .max(60)
-    .regex(
-      /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
-      "Slug must be lowercase with hyphens only"
-    ),
   description: z.string().trim().max(300).optional(),
-  emoji: z.string().max(4).optional(),
+  coverImagePath: z.string().trim().min(1).max(1024).optional(),
   category: z.string().trim().min(1).max(40).optional(),
   visibility: z.enum(["PUBLIC", "PRIVATE"]).optional(),
 });
@@ -28,4 +19,8 @@ const listTribesSchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).optional().default(20),
 });
 
-module.exports = { createTribeSchema, listTribesSchema };
+const updateTribeSchema = z.object({
+  coverImagePath: z.string().trim().min(1).max(1024).nullable(),
+});
+
+module.exports = { createTribeSchema, listTribesSchema, updateTribeSchema };

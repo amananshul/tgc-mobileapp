@@ -63,4 +63,17 @@ async function myTribes(req, res, next) {
   }
 }
 
-module.exports = { create, list, getBySlug, join, leave, myTribes };
+async function update(req, res, next) {
+  try {
+    const result = await tribeService.updateTribe(
+      req.user.userId,
+      req.params.tribeId,
+      req.body
+    );
+    return res.json(result);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+module.exports = { create, list, getBySlug, join, leave, myTribes, update };
