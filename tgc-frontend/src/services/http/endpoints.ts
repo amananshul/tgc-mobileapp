@@ -8,6 +8,7 @@ export const ENDPOINTS = {
   USERS_ME: '/users/me',
   PROFILE: '/profile',
   DASHBOARD: '/dashboard',
+  HOST_ENABLE: '/host/enable',
   TRIBES: '/tribes',
   TRIBES_MY: '/tribes/my',
   UPLOAD_AVATAR: '/uploads/avatar',

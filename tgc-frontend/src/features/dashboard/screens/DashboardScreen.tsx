@@ -16,21 +16,24 @@ import {
   Crown,
   ArrowRight,
   Check,
+  Lock,
 } from 'lucide-react-native';
+import Toast from 'react-native-toast-message';
 import SoftGradient from '../../../components/ui/SoftGradient';
 import { useDashboard } from '../hooks/useDashboard';
 import Loader from '../../../components/ui/Loader';
 import Button from '../../../components/ui/Button';
 import AppBackground from '../../../components/ui/AppBackground';
 import SurfaceCard from '../../../components/ui/SurfaceCard';
-import { useUpdateProfile } from '../../profile/hooks/useUpdateProfile';
+import { useMe } from '../../profile/hooks/useMe';
+import {useEnableHost} from '../../host/hooks/useEnableHost';
+import {useUIMode} from '../../ui-mode/UIModeProvider';
 import {
   TGC_COLORS,
   TGC_GRADIENTS,
   TGC_SHADOWS,
   TGC_SPACING,
 } from '../../../theme/tgcTheme';
-import type { ProfileMode } from '../../../types/auth';
 import type { AppStackParamList } from '../../../app/navigation/AppStack';
 
 interface DashboardScreenProps {
@@ -47,6 +50,9 @@ const ACTION_ICONS: Record<string, React.ReactNode> = {
   join_tribe: <Users size={20} color={TGC_COLORS.lavender} />,
   attend_event: <CalendarCheck size={20} color={TGC_COLORS.coral} />,
   add_skill: <Zap size={20} color={TGC_COLORS.mint} />,
+  create_tribe: <Users size={20} color={TGC_COLORS.mint} />,
+  post_update: <Zap size={20} color={TGC_COLORS.coral} />,
+  manage_tribes: <Crown size={20} color={TGC_COLORS.lavender} />,
 };
 
 export default function DashboardScreen({
@@ -56,9 +62,11 @@ export default function DashboardScreen({
   const navigation =
     useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { data, isLoading, isError, refetch } = useDashboard();
-  const updateProfile = useUpdateProfile();
+  const meQuery = useMe();
+  const {uiMode, canUseHostMode, setUIMode} = useUIMode();
+  const enableHost = useEnableHost();
 
-  if (isLoading) {
+  if (isLoading || meQuery.isLoading) {
     return <Loader color={TGC_COLORS.mint} />;
   }
 
@@ -81,19 +89,80 @@ export default function DashboardScreen({
     );
   }
 
-  const isHostMode = data.profile.activeMode === 'HOST';
+  const isHostMode = uiMode === 'HOST' && canUseHostMode;
   const headerGradient = isHostMode
     ? TGC_GRADIENTS.hostHeader
     : TGC_GRADIENTS.dashboardHeader;
-
-  const setMode = (mode: ProfileMode) => {
-    if (mode === data.profile.activeMode || updateProfile.isPending) return;
-    updateProfile.mutate({ activeMode: mode });
-  };
+  const userRole = meQuery.data?.user?.role ?? data.user.role;
 
   const handleActionClick = (actionId: string) => {
     if (actionId === 'join_tribe') {
       navigation.navigate('ExploreTribes');
+      return;
+    }
+    if (actionId === 'create_tribe') {
+      navigation.navigate('CreateTribe');
+      return;
+    }
+    if (actionId === 'manage_tribes') {
+      onOpenProfile?.();
+      return;
+    }
+    if (actionId === 'post_update') {
+      if (data.tribes[0]) {
+        navigation.navigate('TribeDetail', {slug: data.tribes[0].slug});
+      } else {
+        navigation.navigate('ExploreTribes');
+      }
+    }
+  };
+
+  const handleModePress = (mode: 'USER' | 'HOST') => {
+    if (mode === 'HOST' && !canUseHostMode) {
+      Toast.show({
+        type: 'info',
+        text1: 'Host mode is locked',
+        text2: 'Enable Host from your Profile to unlock this mode.',
+        position: 'top',
+      });
+      onOpenProfile?.();
+      return;
+    }
+    setUIMode(mode);
+  };
+
+  const displayedActions = isHostMode
+    ? [
+        {
+          id: 'create_tribe',
+          title: 'Create Tribe',
+          description: 'Start a new community and invite members.',
+          done: false,
+          accent: 'mint' as const,
+        },
+        {
+          id: 'post_update',
+          title: 'Post Update',
+          description: 'Share an update in one of your tribes.',
+          done: false,
+          accent: 'coral' as const,
+        },
+        {
+          id: 'manage_tribes',
+          title: 'View My Tribes',
+          description: 'Open profile and manage the tribes you run/join.',
+          done: false,
+          accent: 'lavender' as const,
+        },
+      ]
+    : data.nextActions;
+
+  const handleEnableHost = async () => {
+    try {
+      await enableHost.mutateAsync();
+      setUIMode('HOST');
+    } catch {
+      // handled by mutation toast
     }
   };
 
@@ -111,11 +180,15 @@ export default function DashboardScreen({
           <Text style={styles.title}>
             {isHostMode ? 'Host Dashboard' : 'Dashboard'}
           </Text>
-          <Text style={styles.subtitle}>{data.welcome.subtitle}</Text>
+          <Text style={styles.subtitle}>
+            {isHostMode
+              ? 'Create tribes, post updates, and manage your community'
+              : data.welcome.subtitle}
+          </Text>
 
           <View style={styles.modeSwitch}>
             <TouchableOpacity
-              onPress={() => setMode('USER')}
+              onPress={() => handleModePress('USER')}
               style={[styles.modePill, !isHostMode && styles.modePillActive]}
             >
               <Text
@@ -125,14 +198,27 @@ export default function DashboardScreen({
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => setMode('HOST')}
-              style={[styles.modePill, isHostMode && styles.modePillActive]}
+              onPress={() => handleModePress('HOST')}
+              style={[
+                styles.modePill,
+                isHostMode && styles.modePillActive,
+                !canUseHostMode && styles.modePillDisabled,
+              ]}
             >
-              <Text
-                style={[styles.modeText, isHostMode && styles.modeTextActive]}
-              >
-                HOST
-              </Text>
+              <View style={styles.modeTextRow}>
+                <Text
+                  style={[
+                    styles.modeText,
+                    isHostMode && styles.modeTextActive,
+                    !canUseHostMode && styles.modeTextDisabled,
+                  ]}
+                >
+                  HOST
+                </Text>
+                {!canUseHostMode ? (
+                  <Lock size={12} color="rgba(255,255,255,0.92)" />
+                ) : null}
+              </View>
             </TouchableOpacity>
           </View>
         </SoftGradient>
@@ -161,14 +247,16 @@ export default function DashboardScreen({
           </SurfaceCard>
 
           <SurfaceCard style={styles.card}>
-            <Text style={styles.cardTitle}>Next Best Actions</Text>
-            {data.nextActions.length ? (
-              data.nextActions.map(action => (
+            <Text style={styles.cardTitle}>
+              {isHostMode ? 'Host Quick Actions' : 'Next Best Actions'}
+            </Text>
+            {displayedActions.length ? (
+              displayedActions.map(action => (
                 <TouchableOpacity
                   key={action.id}
                   style={styles.actionCard}
                   onPress={() => handleActionClick(action.id)}
-                  disabled={action.done}
+                  disabled={!isHostMode && action.done}
                   activeOpacity={0.6}
                 >
                   <View
@@ -179,7 +267,7 @@ export default function DashboardScreen({
                       },
                     ]}
                   >
-                    {action.done ? (
+                    {!isHostMode && action.done ? (
                       <Check size={20} color={TGC_COLORS.mint} />
                     ) : (
                       ACTION_ICONS[action.id] || (
@@ -223,12 +311,12 @@ export default function DashboardScreen({
             </Text>
           </SurfaceCard>
 
-          {data.tribes.length > 0 && (
-            <SurfaceCard style={styles.card}>
-              <View style={styles.tribesHeaderRow}>
-                <Text style={styles.cardTitle}>My Tribes</Text>
-              </View>
-              {data.tribes.map(tribe => (
+          <SurfaceCard style={styles.card}>
+            <View style={styles.tribesHeaderRow}>
+              <Text style={styles.cardTitle}>My Tribes</Text>
+            </View>
+            {data.tribes.length > 0 ? (
+              data.tribes.map(tribe => (
                 <TouchableOpacity
                   key={tribe.id}
                   onPress={() =>
@@ -248,9 +336,22 @@ export default function DashboardScreen({
                   </View>
                   <Text style={styles.tribeArrow}>↗</Text>
                 </TouchableOpacity>
-              ))}
-            </SurfaceCard>
-          )}
+              ))
+            ) : (
+              <>
+                <Text style={styles.emptyText}>
+                  You haven&apos;t joined any tribes yet.
+                </Text>
+                <Button
+                  title="Explore Tribes"
+                  onPress={() => navigation.navigate('ExploreTribes')}
+                  compact
+                  variant="outline"
+                  style={styles.smallButton}
+                />
+              </>
+            )}
+          </SurfaceCard>
 
           {isHostMode ? (
             <SurfaceCard style={styles.card}>
@@ -286,12 +387,20 @@ export default function DashboardScreen({
                 {data.hostModeCard.subtitle}
               </Text>
               <Button
-                title={data.hostModeCard.cta}
-                onPress={() => {}}
+                title={canUseHostMode ? 'Switch to Host Mode' : 'Become a Host'}
+                onPress={() => {
+                  if (canUseHostMode) {
+                    setUIMode('HOST');
+                  } else {
+                    handleEnableHost();
+                  }
+                }}
+                loading={enableHost.isPending}
                 variant="outline"
                 compact
                 style={styles.hostBtn}
               />
+              <Text style={styles.hostTinyNote}>Role: {userRole}</Text>
             </SoftGradient>
           )}
         </View>
@@ -360,9 +469,20 @@ const styles = StyleSheet.create({
   modePillActive: {
     backgroundColor: '#fff',
   },
+  modePillDisabled: {
+    opacity: 0.88,
+  },
   modeText: {
     fontSize: 12,
     fontWeight: '800',
+    color: 'rgba(255,255,255,0.92)',
+  },
+  modeTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  modeTextDisabled: {
     color: 'rgba(255,255,255,0.92)',
   },
   modeTextActive: {
@@ -478,6 +598,12 @@ const styles = StyleSheet.create({
   },
   hostBtn: {
     backgroundColor: '#FFFFFF',
+  },
+  hostTinyNote: {
+    marginTop: 10,
+    color: TGC_COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
   },
   statsRow: {
     flexDirection: 'row',

@@ -148,6 +148,39 @@ export interface CreateTribePayload {
   visibility?: 'PUBLIC' | 'PRIVATE';
 }
 
+export interface HostEnableResponse {
+  user: UserData;
+}
+
+export interface TribePostAuthor {
+  username: string | null;
+  fullName: string | null;
+  avatarUrl: string | null;
+}
+
+export interface TribePost {
+  id: string;
+  tribeId: string;
+  userId: string;
+  content: string;
+  imageUrl: string | null;
+  createdAt: string;
+  author: TribePostAuthor;
+}
+
+export interface TribePostsResponse {
+  posts: TribePost[];
+}
+
+export interface CreateTribePostPayload {
+  content: string;
+  imageUrl?: string;
+}
+
+export interface CreateTribePostResponse {
+  post: TribePost;
+}
+
 export interface DashboardResponse {
   user: UserData;
   profile: ProfileData;

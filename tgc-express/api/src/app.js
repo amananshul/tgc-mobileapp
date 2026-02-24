@@ -13,6 +13,7 @@ const profileRoutes = require("./modules/profile/profile.routes");
 const dashboardRoutes = require("./modules/dashboard/dashboard.routes");
 const tribesRoutes = require("./modules/tribes/tribe.routes");
 const uploadsRoutes = require("./modules/uploads/uploads.routes");
+const hostRoutes = require("./modules/host/host.routes");
 
 // Middleware
 const errorMiddleware = require("./middlewares/error.middleware");
@@ -38,6 +39,7 @@ app.use("/profile", profileRoutes);
 app.use("/dashboard", dashboardRoutes);
 app.use("/tribes", tribesRoutes);
 app.use("/uploads", uploadsRoutes);
+app.use("/host", hostRoutes);
 
 // ─── Error Handler (must be last) ────────────────────────────────────────────
 app.use(errorMiddleware);

@@ -7,6 +7,9 @@ import type {
   LeaveTribeResponse,
   MyTribesResponse,
   CreateTribePayload,
+  TribePostsResponse,
+  CreateTribePostPayload,
+  CreateTribePostResponse,
 } from '../../../types/auth';
 
 export async function listTribesApi(params?: {
@@ -58,6 +61,26 @@ export async function createTribeApi(
 ): Promise<TribeDetailResponse> {
   const {data} = await client.post<TribeDetailResponse>(
     ENDPOINTS.TRIBES,
+    payload,
+  );
+  return data;
+}
+
+export async function listTribePostsApi(
+  tribeId: string,
+): Promise<TribePostsResponse> {
+  const {data} = await client.get<TribePostsResponse>(
+    `${ENDPOINTS.TRIBES}/${tribeId}/posts`,
+  );
+  return data;
+}
+
+export async function createTribePostApi(
+  tribeId: string,
+  payload: CreateTribePostPayload,
+): Promise<CreateTribePostResponse> {
+  const {data} = await client.post<CreateTribePostResponse>(
+    `${ENDPOINTS.TRIBES}/${tribeId}/posts`,
     payload,
   );
   return data;

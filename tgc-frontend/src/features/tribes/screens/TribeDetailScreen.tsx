@@ -1,4 +1,4 @@
-import React, {useCallback} from 'react';
+import React, {useCallback, useMemo, useState} from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {ArrowLeft, Users, Tag, Shield} from 'lucide-react-native';
@@ -20,6 +21,9 @@ import Loader from '../../../components/ui/Loader';
 import {useTribeDetail} from '../hooks/useTribeDetail';
 import {useJoinTribe} from '../hooks/useJoinTribe';
 import {useLeaveTribe} from '../hooks/useLeaveTribe';
+import {useTribePosts} from '../hooks/useTribePosts';
+import {useCreateTribePost} from '../hooks/useCreateTribePost';
+import CreatePostModal from '../components/CreatePostModal';
 import {
   TGC_COLORS,
   TGC_GRADIENTS,
@@ -27,9 +31,27 @@ import {
   TGC_SHADOWS,
   TGC_SPACING,
 } from '../../../theme/tgcTheme';
+import type {CreateTribePostPayload, TribePost} from '../../../types/auth';
 import type {AppStackParamList} from '../../../app/navigation/AppStack';
 
 type DetailRoute = RouteProp<AppStackParamList, 'TribeDetail'>;
+
+function formatTimeAgo(dateString: string) {
+  const date = new Date(dateString).getTime();
+  const diffMs = Date.now() - date;
+  const diffMin = Math.max(1, Math.floor(diffMs / (1000 * 60)));
+
+  if (diffMin < 60) return `${diffMin}m`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return `${diffDay}d`;
+  return new Date(dateString).toLocaleDateString();
+}
+
+function getAuthorName(post: TribePost) {
+  return post.author.fullName || post.author.username || 'Tribe Member';
+}
 
 export default function TribeDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -37,12 +59,15 @@ export default function TribeDetailScreen() {
     useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const route = useRoute<DetailRoute>();
   const {slug} = route.params;
+  const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
 
   const {data, isLoading, isError, refetch} = useTribeDetail(slug);
   const joinTribe = useJoinTribe();
   const leaveTribe = useLeaveTribe();
 
   const tribe = data?.tribe;
+  const postsQuery = useTribePosts(tribe?.id, !!tribe?.isJoined);
+  const createTribePost = useCreateTribePost(tribe?.id);
 
   const handleJoin = useCallback(() => {
     if (tribe) {
@@ -65,6 +90,16 @@ export default function TribeDetailScreen() {
       ],
     );
   }, [tribe, leaveTribe]);
+
+  const handleCreatePost = useCallback(
+    async (payload: CreateTribePostPayload) => {
+      await createTribePost.mutateAsync(payload);
+      setIsCreatePostOpen(false);
+    },
+    [createTribePost],
+  );
+
+  const posts = useMemo(() => postsQuery.data?.posts ?? [], [postsQuery.data]);
 
   if (isLoading) {
     return <Loader color={TGC_COLORS.lavender} />;
@@ -200,8 +235,106 @@ export default function TribeDetailScreen() {
               </TouchableOpacity>
             )}
           </View>
+
+          <SurfaceCard style={styles.feedCard}>
+            <View style={styles.feedHeaderRow}>
+              <Text style={styles.feedTitle}>Feed</Text>
+              {tribe.isJoined ? (
+                <View style={styles.feedBadge}>
+                  <Text style={styles.feedBadgeText}>Members only</Text>
+                </View>
+              ) : null}
+            </View>
+
+            {!tribe.isJoined ? (
+              <Text style={styles.feedStateText}>
+                Join this tribe to see updates and post in the feed.
+              </Text>
+            ) : postsQuery.isLoading ? (
+              <View style={styles.feedLoadingWrap}>
+                <ActivityIndicator size="small" color={TGC_COLORS.lavender} />
+              </View>
+            ) : postsQuery.isError ? (
+              <View style={styles.feedErrorWrap}>
+                <Text style={styles.feedStateText}>
+                  Could not load the tribe feed.
+                </Text>
+                <TouchableOpacity
+                  style={styles.feedRetryBtn}
+                  onPress={() => postsQuery.refetch()}>
+                  <Text style={styles.feedRetryText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : posts.length ? (
+              <View style={styles.feedList}>
+                {posts.map(post => {
+                  const authorName = getAuthorName(post);
+                  const username = post.author.username
+                    ? `@${post.author.username}`
+                    : '@member';
+                  return (
+                    <View key={post.id} style={styles.postCard}>
+                      <View style={styles.postHeader}>
+                        {post.author.avatarUrl ? (
+                          <Image
+                            source={{uri: post.author.avatarUrl}}
+                            style={styles.postAvatar}
+                          />
+                        ) : (
+                          <View style={styles.postAvatarFallback}>
+                            <Text style={styles.postAvatarFallbackText}>
+                              {authorName.slice(0, 2).toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
+
+                        <View style={styles.postAuthorWrap}>
+                          <Text style={styles.postAuthorName}>{authorName}</Text>
+                          <Text style={styles.postMeta}>
+                            {username} · {formatTimeAgo(post.createdAt)}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Text style={styles.postContent}>{post.content}</Text>
+
+                      {post.imageUrl ? (
+                        <Image
+                          source={{uri: post.imageUrl}}
+                          style={styles.postImage}
+                          resizeMode="cover"
+                        />
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <Text style={styles.feedStateText}>
+                No posts yet. Share the first update for this tribe.
+              </Text>
+            )}
+          </SurfaceCard>
         </View>
       </ScrollView>
+
+      {tribe.isJoined ? (
+        <>
+          <TouchableOpacity
+            style={[styles.postFab, {bottom: insets.bottom + 22}]}
+            onPress={() => setIsCreatePostOpen(true)}
+            activeOpacity={0.85}>
+            <Text style={styles.postFabPlus}>+</Text>
+            <Text style={styles.postFabText}>Post</Text>
+          </TouchableOpacity>
+          <CreatePostModal
+            visible={isCreatePostOpen}
+            onClose={() => setIsCreatePostOpen(false)}
+            loading={createTribePost.isPending}
+            onSubmit={handleCreatePost}
+          />
+        </>
+      ) : null}
     </AppBackground>
   );
 }
@@ -211,7 +344,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 60,
+    paddingBottom: 120,
   },
   header: {
     borderBottomLeftRadius: 28,
@@ -400,6 +533,154 @@ const styles = StyleSheet.create({
   },
   ownerNoteText: {
     color: TGC_COLORS.lavender,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  feedCard: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  feedHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  feedTitle: {
+    color: TGC_COLORS.textPrimary,
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  feedBadge: {
+    minHeight: 28,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: 'rgba(200,182,255,0.16)',
+    borderWidth: 1,
+    borderColor: TGC_COLORS.lavender,
+    justifyContent: 'center',
+  },
+  feedBadgeText: {
+    color: TGC_COLORS.lavender,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  feedLoadingWrap: {
+    minHeight: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  feedErrorWrap: {
+    gap: 10,
+  },
+  feedStateText: {
+    color: TGC_COLORS.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  feedRetryBtn: {
+    alignSelf: 'flex-start',
+    minHeight: 34,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    backgroundColor: TGC_COLORS.bgSecondary,
+    borderWidth: 1,
+    borderColor: TGC_COLORS.border,
+    justifyContent: 'center',
+  },
+  feedRetryText: {
+    color: TGC_COLORS.textPrimary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  feedList: {
+    gap: 12,
+  },
+  postCard: {
+    backgroundColor: TGC_COLORS.bgSecondary,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: TGC_COLORS.border,
+    padding: 12,
+  },
+  postHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  postAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  postAvatarFallback: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,139,123,0.18)',
+    borderWidth: 1,
+    borderColor: TGC_COLORS.coralLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  postAvatarFallbackText: {
+    color: TGC_COLORS.coral,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  postAuthorWrap: {
+    marginLeft: 10,
+    flex: 1,
+  },
+  postAuthorName: {
+    color: TGC_COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  postMeta: {
+    color: TGC_COLORS.textTertiary,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  postContent: {
+    color: TGC_COLORS.textPrimary,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  postImage: {
+    marginTop: 10,
+    width: '100%',
+    height: 180,
+    borderRadius: 14,
+    backgroundColor: TGC_COLORS.border,
+  },
+  postFab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 22,
+    minHeight: 52,
+    borderRadius: 26,
+    paddingHorizontal: 16,
+    backgroundColor: TGC_COLORS.mint,
+    borderWidth: 1,
+    borderColor: '#63C9B2',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    shadowColor: TGC_COLORS.mint,
+    shadowOpacity: 0.24,
+    shadowRadius: 14,
+    shadowOffset: {width: 0, height: 8},
+    elevation: 5,
+  },
+  postFabPlus: {
+    color: TGC_COLORS.textPrimary,
+    fontSize: 20,
+    fontWeight: '900',
+    marginTop: -1,
+  },
+  postFabText: {
+    color: TGC_COLORS.textPrimary,
     fontSize: 14,
     fontWeight: '800',
   },

@@ -12,6 +12,7 @@ export function useJoinTribe() {
       queryClient.invalidateQueries({queryKey: ['myTribes']});
       queryClient.invalidateQueries({queryKey: ['tribe']});
       queryClient.invalidateQueries({queryKey: ['dashboard']});
+      queryClient.invalidateQueries({queryKey: ['me']});
 
       Toast.show({
         type: 'success',

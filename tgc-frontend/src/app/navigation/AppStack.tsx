@@ -3,11 +3,13 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AppShellScreen from '../../features/app/screens/AppShellScreen';
 import ExploreTribesScreen from '../../features/tribes/screens/ExploreTribesScreen';
 import TribeDetailScreen from '../../features/tribes/screens/TribeDetailScreen';
+import CreateTribeScreen from '../../features/tribes/screens/CreateTribeScreen';
 import { TGC_COLORS } from '../../theme/tgcTheme';
 
 export type AppStackParamList = {
   AppShell: undefined;
   ExploreTribes: undefined;
+  CreateTribe: undefined;
   TribeDetail: { slug: string };
 };
 
@@ -23,6 +25,7 @@ export default function AppStack() {
     >
       <Stack.Screen name="AppShell" component={AppShellScreen} />
       <Stack.Screen name="ExploreTribes" component={ExploreTribesScreen} />
+      <Stack.Screen name="CreateTribe" component={CreateTribeScreen} />
       <Stack.Screen name="TribeDetail" component={TribeDetailScreen} />
     </Stack.Navigator>
   );

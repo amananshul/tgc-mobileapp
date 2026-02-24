@@ -51,6 +51,7 @@ model User {
   refreshTokens  RefreshToken[]
   tribes         UserTribe[]
   createdTribes  Tribe[]        @relation("TribeCreator")
+  tribePosts     TribePost[]
 }
 
 model RefreshToken {
@@ -100,6 +101,7 @@ model Tribe {
 
   createdBy     User?           @relation("TribeCreator", fields: [createdById], references: [id])
   members       UserTribe[]
+  posts         TribePost[]
 
   @@index([category])
   @@index([slug])
@@ -118,4 +120,20 @@ model UserTribe {
   @@unique([userId, tribeId])
   @@index([tribeId])
   @@index([userId])
+}
+
+model TribePost {
+  id        String   @id @default(uuid())
+  tribeId    String
+  userId     String
+  content    String   @db.VarChar(2000)
+  imageUrl   String?
+  createdAt  DateTime @default(now())
+
+  tribe      Tribe    @relation(fields: [tribeId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tribeId])
+  @@index([userId])
+  @@index([tribeId, createdAt])
 }

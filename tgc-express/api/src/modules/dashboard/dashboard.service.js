@@ -59,6 +59,7 @@ async function getDashboard(userId) {
     user: safeUser(user),
     profile: safeProfile(profile),
     mode: profile.activeMode,
+    profileCompleteness: completeness,
     welcome: {
       title: `Hi, ${displayName} 👋`,
       subtitle: dashboardSubtitle,
@@ -96,11 +97,35 @@ async function getDashboard(userId) {
         accent: "mint",
       },
     ],
+    nextBestActions: [
+      {
+        code: "join_tribe",
+        title: "Join a Tribe",
+        subtitle: "Find people who share your vibe and goals.",
+        ctaRoute: "ExploreTribes",
+      },
+      {
+        code: "attend_event",
+        title: "Attend an Event",
+        subtitle: "Show up, connect, and start building momentum.",
+        ctaRoute: null,
+      },
+      {
+        code: "add_skill",
+        title: "Add a Skill",
+        subtitle: "Show what you can offer to your community.",
+        ctaRoute: "Profile",
+      },
+    ],
     karma: {
       level: karmaLevel,
       points: profile.karmaPoints,
       pointsToNext: 100 - (profile.karmaPoints % 100),
       progress: profile.karmaPoints % 100,
+    },
+    karmaSummary: {
+      karmaPoints: profile.karmaPoints,
+      karmaLevel,
     },
     stats: {
       eventsAttended: 0,
@@ -119,12 +144,23 @@ async function getDashboard(userId) {
       members: ut.tribe.memberCount,
       emoji: ut.tribe.emoji,
     })),
+    tribesPreview: userTribes.map((ut) => ({
+      id: ut.tribe.id,
+      name: ut.tribe.name,
+      slug: ut.tribe.slug,
+      members: ut.tribe.memberCount,
+      emoji: ut.tribe.emoji,
+    })),
     hostModeCard: {
-      title: "Become a Host",
-      subtitle: "Create events and earn while building your community",
-      cta: "Coming Soon",
-      enabled: false,
+      title: user.role === "HOST" || user.role === "ADMIN" ? "Host Tools Ready" : "Become a Host",
+      subtitle:
+        user.role === "HOST" || user.role === "ADMIN"
+          ? "Switch to HOST mode to manage your tribe community"
+          : "Create events and earn while building your community",
+      cta: user.role === "HOST" || user.role === "ADMIN" ? "Open Host Mode" : "Become Host",
+      enabled: user.role === "HOST" || user.role === "ADMIN",
     },
+    hostCtaUnlocked: user.role === "HOST" || user.role === "ADMIN",
   };
 }
 

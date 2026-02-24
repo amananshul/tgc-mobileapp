@@ -18,11 +18,12 @@ export default function AppShellScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        {isDashboard ? (
+        <View style={{flex: 1, display: isDashboard ? 'flex' : 'none'}}>
           <DashboardScreen onOpenProfile={() => setActiveTab('profile')} />
-        ) : (
+        </View>
+        <View style={{flex: 1, display: isProfile ? 'flex' : 'none'}}>
           <ProfileScreen />
-        )}
+        </View>
       </View>
 
       <View style={[styles.tabBar, {paddingBottom: Math.max(insets.bottom, 10) + 4}]}>

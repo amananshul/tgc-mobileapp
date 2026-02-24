@@ -5,7 +5,7 @@ const env = require("../config/env");
 function errorMiddleware(err, _req, res, _next) {
   // Zod validation errors
   if (err instanceof ZodError) {
-    const errors = err.errors.map((e) => ({
+    const errors = err.issues.map((e) => ({
       field: e.path.join("."),
       message: e.message,
     }));

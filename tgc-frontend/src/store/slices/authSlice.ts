@@ -57,6 +57,9 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.isRestoringSession = false;
     },
+    updateUser(state, action: PayloadAction<UserData>) {
+      state.user = action.payload;
+    },
     updateProfile(state, action: PayloadAction<ProfileData>) {
       state.profile = action.payload;
     },
@@ -81,7 +84,8 @@ const authSlice = createSlice({
   },
 });
 
-export const {setCredentials, clearCredentials, updateProfile} = authSlice.actions;
+export const {setCredentials, clearCredentials, updateUser, updateProfile} =
+  authSlice.actions;
 export default authSlice.reducer;
 
 // Helpers for use outside of components

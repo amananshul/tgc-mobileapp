@@ -7,29 +7,32 @@ import {
   TouchableOpacity,
   Image,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
+import {useQueryClient} from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { LogOut, Award, Users, Briefcase, Link2 } from 'lucide-react-native';
+import { LogOut, Award, Users, Briefcase, Link2, Lock } from 'lucide-react-native';
 import { useAppSelector, useAppDispatch } from '../../../store/hooks';
 import { logoutAndClear } from '../../../store/slices/authSlice';
 import { logoutApi } from '../../auth/api/auth.api';
 import { getRefreshToken } from '../../../services/http/tokenStore';
 import { useDashboard } from '../../dashboard/hooks/useDashboard';
-import { useUpdateProfile } from '../hooks/useUpdateProfile';
+import {useMe} from '../hooks/useMe';
+import {useEnableHost} from '../../host/hooks/useEnableHost';
+import {useMyTribes} from '../../tribes/hooks/useMyTribes';
+import {useUIMode} from '../../ui-mode/UIModeProvider';
 import Loader from '../../../components/ui/Loader';
 import Button from '../../../components/ui/Button';
 import SoftGradient from '../../../components/ui/SoftGradient';
 import AppBackground from '../../../components/ui/AppBackground';
 import SurfaceCard from '../../../components/ui/SurfaceCard';
-import { EQUIPMENT_LIST } from '../constants';
 import {
   TGC_COLORS,
   TGC_GRADIENTS,
   TGC_SHADOWS,
   TGC_SPACING,
 } from '../../../theme/tgcTheme';
-import type { ProfileMode } from '../../../types/auth';
 import type { AppStackParamList } from '../../../app/navigation/AppStack';
 
 export default function ProfileScreen() {
@@ -37,15 +40,23 @@ export default function ProfileScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const dispatch = useAppDispatch();
-  const { profile, user } = useAppSelector(state => state.auth);
-  const { data, isLoading, isError, refetch } = useDashboard();
-  const updateProfile = useUpdateProfile();
+  const queryClient = useQueryClient();
+  const { profile: authProfile, user: authUser } = useAppSelector(state => state.auth);
+  const dashboardQuery = useDashboard();
+  const meQuery = useMe();
+  const myTribesQuery = useMyTribes();
+  const {uiMode, canUseHostMode, setUIMode} = useUIMode();
+  const enableHost = useEnableHost();
 
-  if (isLoading) {
+  if (dashboardQuery.isLoading || meQuery.isLoading || myTribesQuery.isLoading) {
     return <Loader color={TGC_COLORS.coral} />;
   }
 
-  if (!profile || !data || isError) {
+  const data = dashboardQuery.data;
+  const profile = meQuery.data?.profile ?? authProfile;
+  const user = meQuery.data?.user ?? authUser;
+
+  if (!profile || !user || !data || dashboardQuery.isError || meQuery.isError) {
     return (
       <AppBackground style={styles.container}>
         <View style={styles.emptyCard}>
@@ -55,7 +66,11 @@ export default function ProfileScreen() {
           </Text>
           <Button
             title="Retry"
-            onPress={() => refetch()}
+            onPress={() => {
+              dashboardQuery.refetch();
+              meQuery.refetch();
+              myTribesQuery.refetch();
+            }}
             style={styles.retryBtn}
             compact
           />
@@ -64,7 +79,7 @@ export default function ProfileScreen() {
     );
   }
 
-  const isHostMode = profile.activeMode === 'HOST';
+  const isHostMode = uiMode === 'HOST' && canUseHostMode;
   const headerGradient = isHostMode
     ? TGC_GRADIENTS.hostHeader
     : TGC_GRADIENTS.profileHeader;
@@ -77,10 +92,30 @@ export default function ProfileScreen() {
   const username = profile.username ? `@${profile.username}` : '@newmember';
 
   const completeness = data.onboarding.completeness;
+  const canCreateTribes = user?.role === 'HOST' || user?.role === 'ADMIN';
+  const shouldShowEnableHost = user?.role === 'USER';
+  const myTribes = myTribesQuery.data?.tribes ?? [];
 
-  const setMode = (mode: ProfileMode) => {
-    if (mode === profile.activeMode || updateProfile.isPending) return;
-    updateProfile.mutate({ activeMode: mode });
+  const setMode = (mode: 'USER' | 'HOST') => {
+    if (mode === 'HOST' && !canUseHostMode) {
+      Toast.show({
+        type: 'info',
+        text1: 'Host mode is locked',
+        text2: 'Tap "Become a Host" to unlock HOST mode.',
+        position: 'top',
+      });
+      return;
+    }
+    setUIMode(mode);
+  };
+
+  const handleEnableHost = async () => {
+    try {
+      await enableHost.mutateAsync();
+      setUIMode('HOST');
+    } catch {
+      // handled by mutation toast
+    }
   };
 
   const handleSignOut = async () => {
@@ -90,22 +125,23 @@ export default function ProfileScreen() {
         await logoutApi(rt).catch(() => {});
       }
     } finally {
+      queryClient.clear();
       await logoutAndClear(dispatch);
     }
   };
 
   return (
     <AppBackground style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
         <SoftGradient
           colors={headerGradient}
-          style={[styles.header, { paddingTop: insets.top + 12 }]}
+          style={[styles.header, {paddingTop: insets.top + 8}]}
           intensity={0.56}
         >
-          <TouchableOpacity onPress={handleSignOut} style={styles.signOutBtn}>
+          <TouchableOpacity
+            onPress={handleSignOut}
+            style={styles.signOutBtn}
+            activeOpacity={0.7}
+          >
             <LogOut size={14} color="#fff" />
             <Text style={styles.signOutText}>Sign out</Text>
           </TouchableOpacity>
@@ -113,7 +149,7 @@ export default function ProfileScreen() {
           <View style={styles.avatarWrap}>
             {profile.avatarUrl ? (
               <Image
-                source={{ uri: profile.avatarUrl }}
+                source={{uri: profile.avatarUrl}}
                 style={styles.avatarImage}
                 resizeMode="cover"
               />
@@ -124,13 +160,10 @@ export default function ProfileScreen() {
             )}
           </View>
 
-          <Text style={styles.name}>{displayName}</Text>
+          <Text style={styles.name} numberOfLines={1}>
+            {displayName}
+          </Text>
           <Text style={styles.username}>{username}</Text>
-          <View style={styles.levelBadge}>
-            <Text style={styles.levelText}>
-              Level {data.profileSummary.level}
-            </Text>
-          </View>
 
           <View style={styles.modeSwitch}>
             <TouchableOpacity
@@ -145,18 +178,34 @@ export default function ProfileScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setMode('HOST')}
-              style={[styles.modePill, isHostMode && styles.modePillActive]}
+              style={[
+                styles.modePill,
+                isHostMode && styles.modePillActive,
+                !canUseHostMode && styles.modePillDisabled,
+              ]}
             >
-              <Text
-                style={[styles.modeText, isHostMode && styles.modeTextActive]}
-              >
-                HOST
-              </Text>
+              <View style={styles.modeTextRow}>
+                <Text
+                  style={[
+                    styles.modeText,
+                    isHostMode && styles.modeTextActive,
+                    !canUseHostMode && styles.modeTextDisabled,
+                  ]}
+                >
+                  HOST
+                </Text>
+                {!canUseHostMode ? <Lock size={12} color="#fff" /> : null}
+              </View>
             </TouchableOpacity>
           </View>
         </SoftGradient>
 
-        <View style={styles.cardsSection}>
+        <ScrollView
+          style={styles.scrollArea}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.cardsSection}>
           <SurfaceCard style={styles.card}>
             <Text style={styles.cardTitle}>Profile Completeness</Text>
             <View style={styles.progressTrack}>
@@ -209,22 +258,94 @@ export default function ProfileScreen() {
                   </View>
                 ))
               ) : (
-                <Text style={styles.emptyText}>No skills added yet.</Text>
+                <View style={styles.inlineEmptyBlock}>
+                  <Text style={styles.emptyText}>No skills added yet.</Text>
+                  <Button
+                    title="Add Skill"
+                    onPress={() => {}}
+                    variant="outline"
+                    compact
+                    style={styles.smallInlineBtn}
+                  />
+                </View>
               )}
             </View>
 
             <Text style={[styles.cardTitle, styles.equipmentTitle]}>
               Equipment
             </Text>
-            <View style={styles.chipsWrap}>
-              {EQUIPMENT_LIST.map(item => (
-                <View key={item} style={styles.equipmentChip}>
-                  <Text style={styles.equipmentText}>{item}</Text>
-                  <View style={styles.dot} />
-                </View>
-              ))}
-            </View>
+            <Text style={styles.emptyText}>
+              Equipment details are not set up yet. Add skills first and we&apos;ll
+              expand this section next.
+            </Text>
           </SurfaceCard>
+
+          <SurfaceCard style={styles.card}>
+            <Text style={styles.cardTitle}>Host Access</Text>
+            {shouldShowEnableHost ? (
+              <>
+                <Text style={styles.hostText}>
+                  Become a Host to create tribes and build your own community.
+                </Text>
+                <Button
+                  title="Become a Host"
+                  onPress={handleEnableHost}
+                  loading={enableHost.isPending}
+                  style={styles.hostPrimaryBtn}
+                />
+              </>
+            ) : (
+              <>
+                <Text style={styles.hostText}>
+                  Host access is enabled. You can create and manage your own tribes.
+                </Text>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('CreateTribe')}
+                  style={styles.createTribeBtn}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.createTribeBtnText}>Create Tribe</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </SurfaceCard>
+
+          {isHostMode && canCreateTribes ? (
+            <SurfaceCard style={styles.card}>
+              <Text style={styles.cardTitle}>Host Workspace</Text>
+              <Text style={styles.hostText}>
+                Quick actions for managing your communities and updates.
+              </Text>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('CreateTribe')}
+                style={styles.createTribeBtn}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.createTribeBtnText}>Create Tribe</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('ExploreTribes')}
+                style={styles.secondaryActionBtn}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.secondaryActionBtnText}>Manage My Tribes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  if (myTribes[0]) {
+                    navigation.navigate('TribeDetail', {slug: myTribes[0].slug});
+                  }
+                }}
+                style={styles.secondaryActionBtn}
+                activeOpacity={0.75}
+                disabled={!myTribes.length}
+              >
+                <Text style={styles.secondaryActionBtnText}>
+                  {myTribes.length ? 'Post Update' : 'Post Update (Join/Create a tribe first)'}
+                </Text>
+              </TouchableOpacity>
+            </SurfaceCard>
+          ) : null}
 
           <SurfaceCard style={styles.card}>
             <View style={styles.tribeHeaderRow}>
@@ -236,8 +357,8 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            {data.tribes.length ? (
-              data.tribes.map(tribe => (
+            {myTribes.length ? (
+              myTribes.map(tribe => (
                 <TouchableOpacity
                   key={tribe.id}
                   onPress={() =>
@@ -252,16 +373,29 @@ export default function ProfileScreen() {
                   <View style={styles.tribeBody}>
                     <Text style={styles.tribeName}>{tribe.name}</Text>
                     <Text style={styles.tribeMembers}>
-                      {tribe.members} members
+                      {tribe.memberCount} members
                     </Text>
                   </View>
                   <Text style={styles.tribeArrow}>↗</Text>
                 </TouchableOpacity>
               ))
             ) : (
-              <Text style={styles.emptyText}>
-                No tribes yet. Explore and join your first one.
-              </Text>
+              <>
+                <Text style={styles.emptyText}>
+                  No tribes yet. Explore and join your first one.
+                </Text>
+                {canCreateTribes ? (
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate('CreateTribe')}
+                    style={styles.inlineCreateBtn}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.inlineCreateBtnText}>
+                      Or create your own tribe
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+              </>
             )}
           </SurfaceCard>
         </View>
@@ -275,10 +409,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: TGC_COLORS.bgPrimary,
   },
-  content: {
-    paddingTop: 0,
+  scrollArea: {
+    flex: 1,
+    marginBottom:22,
+  },
+  scrollContent: {
     paddingBottom: 120,
-    gap: 14,
   },
   cardsSection: {
     paddingHorizontal: TGC_SPACING.pageHorizontal,
@@ -289,42 +425,42 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
-    paddingHorizontal: 24,
-    paddingBottom: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 18,
     alignItems: 'center',
     shadowColor: TGC_COLORS.coral,
     shadowOpacity: 0.22,
     shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: {width: 0, height: 8},
     elevation: 4,
   },
   signOutBtn: {
     alignSelf: 'flex-end',
-    minHeight: 38,
-    paddingHorizontal: 14,
+    minHeight: 32,
+    paddingHorizontal: 12,
     borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.22)',
     justifyContent: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   signOutText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   avatarWrap: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: 'rgba(255,255,255,0.24)',
-    marginTop: 6,
+    marginTop: 4,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.38)',
+    borderWidth: 2.5,
+    borderColor: 'rgba(255,255,255,0.4)',
   },
   avatarImage: {
     width: '100%',
@@ -332,36 +468,23 @@ const styles = StyleSheet.create({
   },
   avatarFallback: {
     color: '#fff',
-    fontSize: 30,
+    fontSize: 22,
     fontWeight: '900',
   },
   name: {
-    marginTop: 10,
+    marginTop: 8,
     color: '#fff',
-    fontSize: 34,
+    fontSize: 26,
     fontWeight: '900',
     textAlign: 'center',
     textShadowColor: 'rgba(45, 42, 38, 0.16)',
-    textShadowRadius: 8,
+    textShadowRadius: 6,
   },
   username: {
-    marginTop: 4,
-    color: 'rgba(255,255,255,0.92)',
-    fontSize: 14,
+    marginTop: 2,
+    color: 'rgba(255,255,255,0.88)',
+    fontSize: 13,
     fontWeight: '600',
-  },
-  levelBadge: {
-    marginTop: 10,
-    borderRadius: 999,
-    backgroundColor: 'rgba(125,211,192,0.92)',
-    paddingHorizontal: 12,
-    minHeight: 30,
-    justifyContent: 'center',
-  },
-  levelText: {
-    color: TGC_COLORS.textPrimary,
-    fontWeight: '800',
-    fontSize: 12,
   },
   modeSwitch: {
     marginTop: 12,
@@ -382,10 +505,21 @@ const styles = StyleSheet.create({
   modePillActive: {
     backgroundColor: '#fff',
   },
+  modePillDisabled: {
+    opacity: 0.88,
+  },
   modeText: {
     color: 'rgba(255,255,255,0.9)',
     fontSize: 12,
     fontWeight: '800',
+  },
+  modeTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  modeTextDisabled: {
+    color: 'rgba(255,255,255,0.9)',
   },
   modeTextActive: {
     color: TGC_COLORS.textPrimary,
@@ -450,6 +584,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10,
   },
+  inlineEmptyBlock: {
+    width: '100%',
+  },
+  smallInlineBtn: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
   skillChip: {
     minHeight: 42,
     paddingHorizontal: 12,
@@ -498,6 +639,46 @@ const styles = StyleSheet.create({
     color: TGC_COLORS.coral,
     fontSize: 14,
     fontWeight: '700',
+  },
+  hostText: {
+    color: TGC_COLORS.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  hostPrimaryBtn: {
+    marginTop: 12,
+  },
+  createTribeBtn: {
+    marginTop: 12,
+    minHeight: 52,
+    borderRadius: 16,
+    backgroundColor: 'rgba(125,211,192,0.18)',
+    borderWidth: 2,
+    borderColor: TGC_COLORS.mint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createTribeBtnText: {
+    color: TGC_COLORS.textPrimary,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  secondaryActionBtn: {
+    marginTop: 10,
+    minHeight: 46,
+    borderRadius: 14,
+    backgroundColor: TGC_COLORS.bgSecondary,
+    borderWidth: 1,
+    borderColor: TGC_COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  secondaryActionBtnText: {
+    color: TGC_COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   tribeRow: {
     flexDirection: 'row',
@@ -559,6 +740,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 6,
     lineHeight: 20,
+  },
+  inlineCreateBtn: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    minHeight: 38,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(200,182,255,0.16)',
+    borderWidth: 1,
+    borderColor: TGC_COLORS.lavender,
+    justifyContent: 'center',
+  },
+  inlineCreateBtnText: {
+    color: TGC_COLORS.lavender,
+    fontSize: 13,
+    fontWeight: '700',
   },
   retryBtn: {
     marginTop: 14,
