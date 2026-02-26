@@ -6,9 +6,11 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Modal,
+  FlatList,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {ArrowLeft, Upload} from 'lucide-react-native';
+import {ArrowLeft, Upload, ChevronDown} from 'lucide-react-native';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
@@ -29,6 +31,74 @@ import {
 } from '../../../theme/tgcTheme';
 import type {AppStackParamList} from '../../../app/navigation/AppStack';
 
+const TRIBE_CATEGORY_OPTIONS = [
+  {label: 'Technology & Digital', value: 'technology-digital'},
+  {label: 'Creative Arts', value: 'creative-arts'},
+  {label: 'Music & Performing', value: 'music-performing'},
+  {label: 'Fitness & Sports', value: 'fitness-sports'},
+  {label: 'Business & Entrepreneurship', value: 'business-entrepreneurship'},
+  {label: 'Media & Content Creation', value: 'media-content-creation'},
+  {label: 'Food & Hospitality', value: 'food-hospitality'},
+  {label: 'Education & Skill Building', value: 'education-skill-building'},
+  {label: 'Social Impact & Volunteering', value: 'social-impact-volunteering'},
+  {label: 'Gaming & Esports', value: 'gaming-esports'},
+  {label: 'Wellness & Personal Growth', value: 'wellness-personal-growth'},
+  {label: 'Campus & Youth', value: 'campus-youth'},
+  {label: 'Travel & Outdoor Experiences', value: 'travel-outdoor-experiences'},
+  {label: 'Lifestyle & Community', value: 'lifestyle-community'},
+  {label: 'Other', value: 'other'},
+] as const;
+
+interface PickerModalProps {
+  visible: boolean;
+  title: string;
+  items: {label: string; value: string}[];
+  selected: string;
+  onSelect: (value: string) => void;
+  onClose: () => void;
+}
+
+function PickerModal({
+  visible,
+  title,
+  items,
+  selected,
+  onSelect,
+  onClose,
+}: PickerModalProps) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={pickerStyles.backdrop} onPress={onClose} activeOpacity={1} />
+      <View style={pickerStyles.sheet}>
+        <View style={pickerStyles.handle} />
+        <Text style={pickerStyles.title}>{title}</Text>
+        <FlatList
+          data={items}
+          keyExtractor={item => item.value}
+          renderItem={({item}) => {
+            const active = selected === item.value;
+            return (
+              <TouchableOpacity
+                style={[pickerStyles.item, active && pickerStyles.itemActive]}
+                onPress={() => {
+                  onSelect(item.value);
+                  onClose();
+                }}
+                activeOpacity={0.8}>
+                <Text style={[pickerStyles.itemText, active && pickerStyles.itemTextActive]}>
+                  {item.label}
+                </Text>
+                {active ? <Text style={pickerStyles.checkmark}>✓</Text> : null}
+              </TouchableOpacity>
+            );
+          }}
+          showsVerticalScrollIndicator={false}
+        />
+      </View>
+    </Modal>
+  );
+}
+
 export default function CreateTribeScreen() {
   const insets = useSafeAreaInsets();
   const navigation =
@@ -39,12 +109,15 @@ export default function CreateTribeScreen() {
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('general');
+  const [category, setCategory] = useState<string>('other');
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [visibility, setVisibility] = useState<'PUBLIC' | 'PRIVATE'>('PUBLIC');
   const [coverImage, setCoverImage] = useState<{uri: string} | null>(null);
   const [coverPath, setCoverPath] = useState<string | null>(null);
 
   const canCreate = user?.role === 'HOST' || user?.role === 'ADMIN';
+  const selectedCategoryLabel =
+    TRIBE_CATEGORY_OPTIONS.find(option => option.value === category)?.label || 'Other';
 
   const handlePickCover = async () => {
     try {
@@ -168,14 +241,14 @@ export default function CreateTribeScreen() {
               accentColor={TGC_COLORS.lavender}
             />
 
-            <Input
-              label="Category"
-              placeholder="general"
-              value={category}
-              onChangeText={setCategory}
-              autoCapitalize="none"
-              accentColor={TGC_COLORS.lavender}
-            />
+            <Text style={styles.inputLabel}>Category</Text>
+            <TouchableOpacity
+              style={styles.selectorRow}
+              onPress={() => setShowCategoryPicker(true)}
+              activeOpacity={0.8}>
+              <Text style={styles.selectorValue}>{selectedCategoryLabel}</Text>
+              <ChevronDown size={16} color={TGC_COLORS.textSecondary} />
+            </TouchableOpacity>
 
             <Text style={styles.visibilityLabel}>Visibility</Text>
             <View style={styles.visibilityRow}>
@@ -212,9 +285,79 @@ export default function CreateTribeScreen() {
           </SurfaceCard>
         )}
       </ScrollView>
+
+      <PickerModal
+        visible={showCategoryPicker}
+        title="TGC-Aligned Tribe Categories"
+        items={TRIBE_CATEGORY_OPTIONS.map(option => ({
+          label: option.label,
+          value: option.value,
+        }))}
+        selected={category}
+        onSelect={setCategory}
+        onClose={() => setShowCategoryPicker(false)}
+      />
     </AppBackground>
   );
 }
+
+const pickerStyles = StyleSheet.create({
+  backdrop: {flex: 1, backgroundColor: 'rgba(0,0,0,0.35)'},
+  sheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+    maxHeight: '68%',
+  },
+  handle: {
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: TGC_COLORS.border,
+    alignSelf: 'center',
+    marginBottom: 14,
+  },
+  title: {
+    color: TGC_COLORS.textPrimary,
+    fontSize: 18,
+    fontWeight: '900',
+    marginBottom: 12,
+  },
+  item: {
+    minHeight: 48,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    marginBottom: 6,
+    backgroundColor: TGC_COLORS.bgSecondary,
+    borderWidth: 1,
+    borderColor: TGC_COLORS.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  itemActive: {
+    borderColor: TGC_COLORS.lavender,
+    backgroundColor: 'rgba(200,182,255,0.16)',
+  },
+  itemText: {
+    color: TGC_COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+    flex: 1,
+  },
+  itemTextActive: {
+    color: TGC_COLORS.lavender,
+  },
+  checkmark: {
+    color: TGC_COLORS.lavender,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -281,6 +424,31 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: 8,
     fontWeight: '600',
+  },
+  inputLabel: {
+    color: TGC_COLORS.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 7,
+  },
+  selectorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: TGC_COLORS.bgSecondary,
+    borderRadius: TGC_RADIUS.input,
+    borderWidth: 1.5,
+    borderColor: TGC_COLORS.border,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginBottom: 14,
+  },
+  selectorValue: {
+    color: TGC_COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+    flex: 1,
+    paddingRight: 10,
   },
   coverUpload: {
     width: '100%',

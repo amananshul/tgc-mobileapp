@@ -73,6 +73,11 @@ function buildStoragePath({ userId, purpose, originalFileName, tribeId }) {
     return `profile/${userId}/${objectName}`;
   }
 
+  if (purpose === "event-cover") {
+    if (!userId) throw appError("userId is required for event cover upload path", 400);
+    return `event-cover/${userId}/${objectName}`;
+  }
+
   if (!tribeId) {
     throw appError("tribeId is required for tribe uploads", 400);
   }
@@ -165,6 +170,7 @@ async function maybeCreateSignedViewUrl(pathValue, expiresInSec = DEFAULT_VIEW_U
 
 function expectedPrefixForPath({ purpose, userId, tribeId }) {
   if (purpose === "profile") return `profile/${userId}/`;
+  if (purpose === "event-cover") return `event-cover/${userId}/`;
   if (purpose === "tribe-cover") return `tribe-cover/${tribeId}/`;
   if (purpose === "tribe-post") return `tribe-post/${tribeId}/`;
   throw appError("Invalid upload purpose", 400);
@@ -231,6 +237,16 @@ async function presignUpload({ userId, purpose, fileName, mimeType, tribeId, fil
   assertAllowedMimeType(mimeType);
   if (typeof fileSize === "number" && fileSize > MAX_UPLOAD_BYTES) {
     throw appError(`File is too large. Max size is ${MAX_UPLOAD_BYTES} bytes`, 400);
+  }
+
+  if (purpose === "event-cover") {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (!user || !["HOST", "ADMIN"].includes(user.role)) {
+      throw appError("Forbidden", 403);
+    }
   }
 
   if (purpose === "tribe-post" || purpose === "tribe-cover") {

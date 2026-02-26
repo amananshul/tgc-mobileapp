@@ -4,6 +4,8 @@ import type {
   UpdateProfilePayload,
   UpdateProfileResponse,
   MeResponse,
+  SaveOnboardingPayload,
+  SaveOnboardingResponse,
 } from '../../../types/auth';
 
 export async function getMeApi(): Promise<MeResponse> {
@@ -15,5 +17,15 @@ export async function updateProfileApi(
   payload: UpdateProfilePayload,
 ): Promise<UpdateProfileResponse> {
   const {data} = await client.patch<UpdateProfileResponse>(ENDPOINTS.PROFILE, payload);
+  return data;
+}
+
+export async function saveOnboardingApi(
+  payload: SaveOnboardingPayload,
+): Promise<SaveOnboardingResponse> {
+  const {data} = await client.patch<SaveOnboardingResponse>(
+    ENDPOINTS.PROFILE_ONBOARDING,
+    payload,
+  );
   return data;
 }

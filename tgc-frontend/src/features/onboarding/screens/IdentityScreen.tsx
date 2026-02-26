@@ -24,12 +24,12 @@ export default function IdentityScreen({navigation}: Props) {
   const [username, setUsername] = useState(profile?.username ?? '');
   const [fullName, setFullName] = useState(profile?.fullName ?? '');
   const [city, setCity] = useState(profile?.city ?? '');
-  const [bio, setBio] = useState(profile?.bio ?? '');
+  const [bio, setBio] = useState(profile?.shortBio ?? profile?.bio ?? '');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const updateProfile = useUpdateProfile();
   const uploadAvatar = useUploadAvatar();
-  const bioRemaining = 120 - bio.length;
+  const bioRemaining = 140 - bio.length;
 
   const initials = useMemo(() => {
     const source = fullName || username || 'TGC';
@@ -57,8 +57,8 @@ export default function IdentityScreen({navigation}: Props) {
     }
     if (!bio.trim()) {
       nextErrors.bio = 'Tell people a little about you';
-    } else if (bio.length > 120) {
-      nextErrors.bio = 'Bio must be 120 characters or fewer';
+    } else if (bio.length > 140) {
+      nextErrors.bio = 'Bio must be 140 characters or fewer';
     }
 
     setErrors(nextErrors);
@@ -73,7 +73,7 @@ export default function IdentityScreen({navigation}: Props) {
         username: username.trim().toLowerCase(),
         fullName: fullName.trim(),
         city: city.trim(),
-        bio: bio.trim(),
+        shortBio: bio.trim(),
       },
       {
         onSuccess: () => navigation.navigate('SkillsInterests'),
@@ -117,6 +117,7 @@ export default function IdentityScreen({navigation}: Props) {
       step={2}
       onBack={() => navigation.goBack()}
       title="Build your community identity"
+      subtitle="Faces build trust in communities."
       footer={(
         <Button
           title="Next"
@@ -187,13 +188,13 @@ export default function IdentityScreen({navigation}: Props) {
           placeholder="What do you enjoy building with others?"
           value={bio}
           onChangeText={setBio}
-          maxLength={120}
+          maxLength={140}
           multiline
           error={errors.bio}
           containerStyle={styles.bioInputWrap}
         />
         <Text style={[styles.counter, bioRemaining < 0 && styles.counterError]}>
-          {bio.length}/120
+          {bio.length}/140
         </Text>
       </SurfaceCard>
     </OnboardingScaffold>

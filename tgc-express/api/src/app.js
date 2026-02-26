@@ -5,13 +5,13 @@ const morgan = require("morgan");
 const cookieParser = require("cookie-parser");
 
 // Route modules
-const authRoutes = require("./modules/auth/auth.routes");
 const usersRoutes = require("./modules/users/users.routes");
 const profileRoutes = require("./modules/profile/profile.routes");
 const dashboardRoutes = require("./modules/dashboard/dashboard.routes");
 const tribesRoutes = require("./modules/tribes/tribe.routes");
 const uploadsRoutes = require("./modules/uploads/uploads.routes");
 const hostRoutes = require("./modules/host/host.routes");
+const eventsRoutes = require("./modules/events/events.routes");
 
 // Middleware
 const errorMiddleware = require("./middlewares/error.middleware");
@@ -28,13 +28,13 @@ app.use(cookieParser());
 // ─── Routes ──────────────────────────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
-app.use("/auth", authRoutes);
 app.use("/users", usersRoutes);
 app.use("/profile", profileRoutes);
 app.use("/dashboard", dashboardRoutes);
 app.use("/tribes", tribesRoutes);
 app.use("/uploads", uploadsRoutes);
 app.use("/host", hostRoutes);
+app.use("/events", eventsRoutes);
 
 // ─── Error Handler (must be last) ────────────────────────────────────────────
 app.use(errorMiddleware);

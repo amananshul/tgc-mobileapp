@@ -1,7 +1,7 @@
-import type {ProfileIntent} from '../../../types/auth';
+import type {GrowthIntent} from '../../../types/auth';
 
 export const INTENT_OPTIONS: Array<{
-  id: Exclude<ProfileIntent, null>;
+  id: GrowthIntent;
   title: string;
   icon: string;
   description: string;
@@ -28,6 +28,20 @@ export const INTENT_OPTIONS: Array<{
     description: 'Share your talent and energize people around you.',
     accent: 'lavender',
   },
+  {
+    id: 'VOLUNTEER',
+    title: 'Volunteer',
+    icon: '🤝',
+    description: 'Contribute your time and skills to community causes.',
+    accent: 'mint',
+  },
+  {
+    id: 'NETWORK',
+    title: 'Network',
+    icon: '🌐',
+    description: 'Build meaningful relationships and collaborations.',
+    accent: 'coral',
+  },
 ];
 
 export const INTEREST_OPTIONS = [
@@ -38,13 +52,26 @@ export const INTEREST_OPTIONS = [
   'Education',
   'Fitness',
   'Startups',
+  'Gaming',
+  'Food',
+  'Travel',
+  'Wellness',
+  'Business',
 ];
 
 export const SKILL_OPTIONS = [
-  'DJing',
   'Coding',
+  'DJing',
   'Photography',
-  'Event Planning',
   'Design',
   'Public Speaking',
+  'Event Planning',
+  'Marketing',
+  'Video Editing',
+  'Teaching',
+  'Singing',
+  'Dancing',
+  'Content Creation',
+  'Management',
+  'Writing',
 ];

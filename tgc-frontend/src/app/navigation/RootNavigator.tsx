@@ -1,12 +1,14 @@
 import React, {useEffect} from 'react';
 import {NavigationContainer, DefaultTheme} from '@react-navigation/native';
 import {useAppSelector, useAppDispatch} from '../../store/hooks';
-import {restoreSession} from '../../store/slices/authSlice';
+import {clearCredentials, restoreSession} from '../../store/slices/authSlice';
 import Loader from '../../components/ui/Loader';
 import AuthStack from './AuthStack';
 import OnboardingStack from './OnboardingStack';
 import AppStack from './AppStack';
 import {TGC_COLORS} from '../../theme/tgcTheme';
+import {setAuthSessionExpiredHandler} from '../../services/http/authSessionBridge';
+import {queryClient} from '../providers/QueryProvider';
 
 const tgcTheme = {
   ...DefaultTheme,
@@ -23,12 +25,20 @@ const tgcTheme = {
 
 export default function RootNavigator() {
   const dispatch = useAppDispatch();
-  const {isAuthenticated, isRestoringSession, profile} = useAppSelector(
+  const {isAuthenticated, isRestoringSession, profile, onboardingCompleted} = useAppSelector(
     state => state.auth,
   );
 
   useEffect(() => {
     dispatch(restoreSession());
+  }, [dispatch]);
+
+  useEffect(() => {
+    setAuthSessionExpiredHandler(async () => {
+      queryClient.clear();
+      dispatch(clearCredentials());
+    });
+    return () => setAuthSessionExpiredHandler(null);
   }, [dispatch]);
 
   if (isRestoringSession) {
@@ -39,7 +49,7 @@ export default function RootNavigator() {
     <NavigationContainer theme={tgcTheme}>
       {!isAuthenticated ? (
         <AuthStack />
-      ) : !profile?.isOnboarded ? (
+      ) : !(onboardingCompleted || profile?.isOnboarded) ? (
         <OnboardingStack />
       ) : (
         <AppStack />

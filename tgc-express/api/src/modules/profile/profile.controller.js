@@ -9,4 +9,13 @@ async function updateProfile(req, res, next) {
   }
 }
 
-module.exports = { updateProfile };
+async function updateOnboarding(req, res, next) {
+  try {
+    const result = await profileService.saveOnboarding(req.user.userId, req.body);
+    return res.json(result);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+module.exports = { updateProfile, updateOnboarding };

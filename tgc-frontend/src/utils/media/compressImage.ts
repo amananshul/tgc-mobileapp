@@ -1,7 +1,6 @@
-import ImageResizer from 'react-native-image-resizer';
 import type {PickedImageAsset} from './pickImage';
 
-export type MediaUploadPurpose = 'profile' | 'tribe-cover' | 'tribe-post';
+export type MediaUploadPurpose = 'profile' | 'tribe-cover' | 'tribe-post' | 'event-cover';
 
 export interface CompressedImageAsset {
   uri: string;
@@ -14,14 +13,12 @@ export interface CompressedImageAsset {
 
 const MAX_FINAL_BYTES = 3 * 1024 * 1024;
 
-const PURPOSE_CONFIG: Record<
-  MediaUploadPurpose,
-  {maxWidth: number; maxHeight: number; quality: number}
-> = {
-  profile: {maxWidth: 512, maxHeight: 512, quality: 75},
-  'tribe-cover': {maxWidth: 1280, maxHeight: 720, quality: 75},
-  'tribe-post': {maxWidth: 1280, maxHeight: 1280, quality: 75},
-};
+function toJpegFileName(originalFileName: string) {
+  const base = (originalFileName || `image-${Date.now()}`)
+    .replace(/\.[^/.]+$/, '')
+    .replace(/[^\w.-]+/g, '-');
+  return `${base || `image-${Date.now()}`}.jpg`;
+}
 
 function ensureFileUri(uri: string) {
   if (uri.startsWith('file://') || uri.startsWith('content://')) {
@@ -30,67 +27,25 @@ function ensureFileUri(uri: string) {
   return `file://${uri}`;
 }
 
-function toJpegFileName(originalFileName: string) {
-  const base = (originalFileName || `image-${Date.now()}`)
-    .replace(/\.[^/.]+$/, '')
-    .replace(/[^\w.-]+/g, '-');
-  return `${base || `image-${Date.now()}`}.jpg`;
-}
-
-async function resizeWithQuality(
-  uri: string,
-  config: {maxWidth: number; maxHeight: number; quality: number},
-  fileName: string,
-) {
-  const resized = await ImageResizer.createResizedImage(
-    uri,
-    config.maxWidth,
-    config.maxHeight,
-    'JPEG',
-    config.quality,
-  );
-
-  const resizedUri = ensureFileUri(resized.uri || resized.path);
-
-  return {
-    uri: resizedUri,
-    fileName: resized.name || fileName,
-    width: resized.width || config.maxWidth,
-    height: resized.height || config.maxHeight,
-    fileSize: resized.size || 0,
-  };
-}
-
+/**
+ * react-native-image-picker already compresses images (quality 0.72, max 1280×720)
+ * producing ~200–400 KB per photo. We use that output directly to avoid requiring
+ * a separate native resize module (which has new-architecture compatibility issues).
+ */
 export async function compressImage({
   image,
-  purpose,
 }: {
   image: PickedImageAsset;
   purpose: MediaUploadPurpose;
 }): Promise<CompressedImageAsset> {
-  const config = PURPOSE_CONFIG[purpose];
-  const fileName = toJpegFileName(image.fileName);
-  const sourceUri = ensureFileUri(image.uri);
-
-  let result = await resizeWithQuality(sourceUri, config, fileName);
-
-  if (result.fileSize > MAX_FINAL_BYTES) {
-    result = await resizeWithQuality(
-      result.uri,
-      {...config, quality: 65},
-      fileName,
-    );
-  }
-
   return {
-    uri: result.uri,
-    fileName,
+    uri: ensureFileUri(image.uri),
+    fileName: toJpegFileName(image.fileName),
     mimeType: 'image/jpeg',
-    width: result.width,
-    height: result.height,
-    fileSize: result.fileSize,
+    width: image.width,
+    height: image.height,
+    fileSize: image.fileSize,
   };
 }
 
 export const MEDIA_MAX_FINAL_BYTES = MAX_FINAL_BYTES;
-

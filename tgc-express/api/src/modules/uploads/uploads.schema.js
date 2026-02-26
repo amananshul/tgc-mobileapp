@@ -3,7 +3,7 @@ const { ALLOWED_IMAGE_MIME_TYPES, MAX_UPLOAD_BYTES } = require("./upload.service
 
 const presignUploadSchema = z
   .object({
-    purpose: z.enum(["profile", "tribe-cover", "tribe-post"]),
+    purpose: z.enum(["profile", "tribe-cover", "tribe-post", "event-cover"]),
     fileName: z.string().trim().min(1, "fileName is required").max(255),
     mimeType: z
       .string()

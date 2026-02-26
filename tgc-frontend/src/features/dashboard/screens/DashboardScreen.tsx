@@ -17,7 +17,10 @@ import {
   ArrowRight,
   Check,
   Lock,
+  Calendar,
+  MapPin,
 } from 'lucide-react-native';
+import type { Event } from '../../../types/auth';
 import Toast from 'react-native-toast-message';
 import SoftGradient from '../../../components/ui/SoftGradient';
 import { useDashboard } from '../hooks/useDashboard';
@@ -51,7 +54,8 @@ const ACTION_ICONS: Record<string, React.ReactNode> = {
   join_tribe: <Users size={20} color={TGC_COLORS.lavender} />,
   attend_event: <CalendarCheck size={20} color={TGC_COLORS.coral} />,
   add_skill: <Zap size={20} color={TGC_COLORS.mint} />,
-  create_tribe: <Users size={20} color={TGC_COLORS.mint} />,
+  create_event: <Calendar size={20} color={TGC_COLORS.mint} />,
+  create_tribe: <Users size={20} color={TGC_COLORS.lavender} />,
   post_update: <Zap size={20} color={TGC_COLORS.coral} />,
   manage_tribes: <Crown size={20} color={TGC_COLORS.lavender} />,
 };
@@ -101,6 +105,14 @@ export default function DashboardScreen({
       navigation.navigate('ExploreTribes');
       return;
     }
+    if (actionId === 'attend_event') {
+      navigation.navigate('ExploreEvents');
+      return;
+    }
+    if (actionId === 'create_event') {
+      navigation.navigate('CreateEvent');
+      return;
+    }
     if (actionId === 'create_tribe') {
       navigation.navigate('CreateTribe');
       return;
@@ -135,11 +147,18 @@ export default function DashboardScreen({
   const displayedActions = isHostMode
     ? [
         {
+          id: 'create_event',
+          title: 'Create Event',
+          description: 'Host a new event and bring your community together.',
+          done: false,
+          accent: 'mint' as const,
+        },
+        {
           id: 'create_tribe',
           title: 'Create Tribe',
           description: 'Start a new community and invite members.',
           done: false,
-          accent: 'mint' as const,
+          accent: 'lavender' as const,
         },
         {
           id: 'post_update',
@@ -147,13 +166,6 @@ export default function DashboardScreen({
           description: 'Share an update in one of your tribes.',
           done: false,
           accent: 'coral' as const,
-        },
-        {
-          id: 'manage_tribes',
-          title: 'View My Tribes',
-          description: 'Open profile and manage the tribes you run/join.',
-          done: false,
-          accent: 'lavender' as const,
         },
       ]
     : data.nextActions;
@@ -359,27 +371,86 @@ export default function DashboardScreen({
             )}
           </SurfaceCard>
 
+          {/* ── Upcoming Events Preview ── */}
+          {(data.upcomingEventsPreview ?? []).length > 0 && (
+            <SurfaceCard style={styles.card}>
+              <View style={styles.tribesHeaderRow}>
+                <Text style={styles.cardTitle}>Upcoming Events</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('ExploreEvents')}>
+                  <Text style={styles.seeAllLink}>See all</Text>
+                </TouchableOpacity>
+              </View>
+              {(data.upcomingEventsPreview as Event[]).map(ev => (
+                <TouchableOpacity
+                  key={ev.id}
+                  style={styles.eventPreviewRow}
+                  onPress={() => navigation.navigate('EventDetail', {slug: ev.slug})}
+                  activeOpacity={0.7}>
+                  <View style={[styles.eventPreviewIcon, ev.isRegistered && styles.eventPreviewIconRegistered]}>
+                    <Calendar size={18} color={ev.isRegistered ? TGC_COLORS.mint : TGC_COLORS.textSecondary} />
+                  </View>
+                  <View style={styles.eventPreviewBody}>
+                    <Text style={styles.eventPreviewTitle} numberOfLines={1}>{ev.title}</Text>
+                    <View style={styles.eventPreviewMeta}>
+                      <MapPin size={11} color={TGC_COLORS.textSecondary} />
+                      <Text style={styles.eventPreviewMetaText}>{ev.city}</Text>
+                    </View>
+                  </View>
+                  {ev.isRegistered && (
+                    <View style={styles.eventRegisteredBadge}>
+                      <Text style={styles.eventRegisteredBadgeText}>✓</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                style={styles.exploreEventsBtn}
+                onPress={() => navigation.navigate('ExploreEvents')}
+                activeOpacity={0.8}>
+                <Text style={styles.exploreEventsBtnText}>Explore All Events</Text>
+              </TouchableOpacity>
+            </SurfaceCard>
+          )}
+
+          {(data.upcomingEventsPreview ?? []).length === 0 && (
+            <SurfaceCard style={styles.card}>
+              <View style={styles.tribesHeaderRow}>
+                <Text style={styles.cardTitle}>Events</Text>
+              </View>
+              <Text style={styles.emptyText}>No upcoming events near you.</Text>
+              <TouchableOpacity
+                style={styles.exploreEventsBtn}
+                onPress={() => navigation.navigate('ExploreEvents')}
+                activeOpacity={0.8}>
+                <Text style={styles.exploreEventsBtnText}>Explore Events</Text>
+              </TouchableOpacity>
+            </SurfaceCard>
+          )}
+
           {isHostMode ? (
             <SurfaceCard style={styles.card}>
               <Text style={styles.cardTitle}>Host Snapshot</Text>
               <View style={styles.statsRow}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>
-                    {data.hostStats.totalRsvps}
+                <View style={[styles.statItem, styles.statItemMint]}>
+                  <Calendar size={18} color={TGC_COLORS.mint} />
+                  <Text style={[styles.statValue, {color: TGC_COLORS.mint}]}>
+                    {(data.hostStats as any)?.totalEventsCreated ?? data.hostStats?.activeGigs ?? 0}
                   </Text>
-                  <Text style={styles.statLabel}>Total RSVPs</Text>
+                  <Text style={styles.statLabel}>{'Events\nCreated'}</Text>
                 </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>
-                    {data.hostStats.activeGigs}
+                <View style={[styles.statItem, styles.statItemCoral]}>
+                  <Users size={18} color={TGC_COLORS.coral} />
+                  <Text style={[styles.statValue, {color: TGC_COLORS.coral}]}>
+                    {data.hostStats?.totalRsvps ?? 0}
                   </Text>
-                  <Text style={styles.statLabel}>Active Gigs</Text>
+                  <Text style={styles.statLabel}>{'Total\nRegist.'}</Text>
                 </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>
-                    {data.hostStats.pendingApprovals}
+                <View style={[styles.statItem, styles.statItemLavender]}>
+                  <Crown size={18} color={TGC_COLORS.lavender} />
+                  <Text style={[styles.statValue, {color: TGC_COLORS.lavender}]}>
+                    {data.tribes?.length ?? 0}
                   </Text>
-                  <Text style={styles.statLabel}>Approvals</Text>
+                  <Text style={styles.statLabel}>{'My\nTribes'}</Text>
                 </View>
               </View>
             </SurfaceCard>
@@ -621,12 +692,25 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: TGC_COLORS.bgSecondary,
     borderRadius: 16,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: TGC_COLORS.border,
     alignItems: 'center',
-    paddingVertical: 12,
-    minHeight: 84,
+    paddingVertical: 14,
+    minHeight: 90,
     justifyContent: 'center',
+    gap: 4,
+  },
+  statItemMint: {
+    borderColor: 'rgba(125,211,192,0.45)',
+    backgroundColor: 'rgba(125,211,192,0.07)',
+  },
+  statItemCoral: {
+    borderColor: 'rgba(255,139,123,0.45)',
+    backgroundColor: 'rgba(255,139,123,0.07)',
+  },
+  statItemLavender: {
+    borderColor: 'rgba(200,182,255,0.45)',
+    backgroundColor: 'rgba(200,182,255,0.07)',
   },
   statValue: {
     color: TGC_COLORS.textPrimary,
@@ -707,5 +791,78 @@ const styles = StyleSheet.create({
     color: TGC_COLORS.lavender,
     fontSize: 16,
     marginLeft: 8,
+  },
+  seeAllLink: {
+    color: TGC_COLORS.mint,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  eventPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: TGC_COLORS.border,
+    gap: 12,
+  },
+  eventPreviewIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: TGC_COLORS.bgSecondary,
+    borderWidth: 1,
+    borderColor: TGC_COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eventPreviewIconRegistered: {
+    backgroundColor: 'rgba(125,211,192,0.14)',
+    borderColor: 'rgba(125,211,192,0.4)',
+  },
+  eventPreviewBody: {
+    flex: 1,
+    gap: 3,
+  },
+  eventPreviewTitle: {
+    color: TGC_COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  eventPreviewMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  eventPreviewMetaText: {
+    color: TGC_COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  eventRegisteredBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: TGC_COLORS.mint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eventRegisteredBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  exploreEventsBtn: {
+    marginTop: 12,
+    backgroundColor: 'rgba(125,211,192,0.12)',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(125,211,192,0.35)',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  exploreEventsBtnText: {
+    color: TGC_COLORS.mint,
+    fontSize: 14,
+    fontWeight: '800',
   },
 });

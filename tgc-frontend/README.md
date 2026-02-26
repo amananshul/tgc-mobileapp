@@ -1,5 +1,56 @@
 This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
 
+# TGC Supabase Auth + Onboarding MVP
+
+## Required env keys
+
+Mobile app (JS runtime):
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `GOOGLE_WEB_CLIENT_ID` (required for Google Sign-In on Android / Supabase Id Token flow)
+- `GOOGLE_IOS_CLIENT_ID` (required for iOS Google Sign-In)
+
+API (`tgc-express/api/.env`):
+
+- `DATABASE_URL`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_MEDIA_BUCKET`
+
+## Run locally (end-to-end)
+
+1. Start Postgres and the API (`tgc-express/api`)
+2. Run Prisma migration + generate
+   - `npx prisma migrate deploy`
+   - `npx prisma generate`
+3. Install mobile dependencies and iOS pods
+   - `cd tgc-frontend && npm install`
+   - `cd ios && pod install`
+4. Start Metro
+   - `npx react-native start --reset-cache`
+5. Run app
+   - Android: `npx react-native run-android`
+   - iOS: `npx react-native run-ios`
+
+## Supabase Google Auth setup (Bare React Native)
+
+This app uses `@react-native-google-signin/google-signin` + `supabase.auth.signInWithIdToken(...)` (no browser redirect flow).
+
+In Supabase:
+
+1. Enable Google provider in `Authentication -> Providers -> Google`
+2. Add your Google OAuth client credentials in Supabase provider settings
+3. Ensure the Google project includes:
+   - Android app client (package name + SHA-1/SHA-256)
+   - iOS app client (bundle id)
+   - Web client (used as `GOOGLE_WEB_CLIENT_ID`)
+4. Use the Web Client ID in the mobile app env as `GOOGLE_WEB_CLIENT_ID`
+5. Use the iOS client ID in the mobile app env as `GOOGLE_IOS_CLIENT_ID`
+6. iOS native: add the reversed iOS client ID as a URL scheme in `Info.plist` (`CFBundleURLTypes`)
+
+Note: This bare RN implementation does not require OAuth redirect URLs in-app because Google Sign-In returns an `idToken` directly, which is exchanged with Supabase.
+
 # Getting Started
 
 > **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.

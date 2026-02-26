@@ -7,10 +7,13 @@ export const ENDPOINTS = {
   AUTH_LOGOUT: '/auth/logout',
   USERS_ME: '/users/me',
   PROFILE: '/profile',
+  PROFILE_ONBOARDING: '/profile/onboarding',
   DASHBOARD: '/dashboard',
   HOST_ENABLE: '/host/enable',
   TRIBES: '/tribes',
   TRIBES_MY: '/tribes/my',
   UPLOADS_PRESIGN: '/uploads/presign',
   UPLOADS_VIEW_URL: '/uploads/view-url',
+  EVENTS: '/events',
+  EVENTS_MY: '/events/my',
 } as const;

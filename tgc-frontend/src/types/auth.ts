@@ -1,25 +1,35 @@
 export type ProfileIntent = 'LEARN' | 'EARN' | 'ENTERTAIN' | null;
+export type GrowthIntent =
+  | 'LEARN'
+  | 'EARN'
+  | 'ENTERTAIN'
+  | 'VOLUNTEER'
+  | 'NETWORK';
 export type ProfileMode = 'USER' | 'HOST';
 
 export type UserRole = 'USER' | 'HOST' | 'ADMIN';
 
 export interface UserData {
   id: string;
-  email: string;
+  email: string | null;
+  supabaseId?: string | null;
   phone: string | null;
   phoneVerified: boolean;
   role: UserRole;
+  onboardingCompleted: boolean;
 }
 
 export interface ProfileData {
   id: string;
   intent: ProfileIntent;
+  growthIntent: GrowthIntent[];
   avatarPath: string | null;
   avatarUrl: string | null;
   username: string | null;
   fullName: string | null;
   city: string | null;
   bio: string | null;
+  shortBio: string | null;
   interests: string[];
   skills: string[];
   activeMode: ProfileMode;
@@ -61,18 +71,39 @@ export interface MeResponse {
 
 export interface UpdateProfilePayload {
   intent?: Exclude<ProfileIntent, null>;
+  growthIntent?: GrowthIntent[];
   avatarPath?: string | null;
   username?: string;
   fullName?: string;
   city?: string;
   bio?: string;
+  shortBio?: string;
   interests?: string[];
   skills?: string[];
   activeMode?: ProfileMode;
 }
 
 export interface UpdateProfileResponse {
+  user?: UserData;
   profile: ProfileData;
+}
+
+export interface SaveOnboardingPayload {
+  growthIntent: GrowthIntent[];
+  avatarPath: string;
+  username: string;
+  fullName: string;
+  city: string;
+  shortBio: string;
+  interests: string[];
+  skills: string[];
+}
+
+export interface SaveOnboardingResponse {
+  message: string;
+  user: UserData;
+  profile: ProfileData;
+  onboardingCompleted: boolean;
 }
 
 export interface DashboardAction {
@@ -185,6 +216,112 @@ export interface CreateTribePostResponse {
   post: TribePost;
 }
 
+// ──── Event Types ─────────────────────────────────────────────────────────────
+
+export type EventCategory =
+  | 'WORKSHOP'
+  | 'OPEN_MIC'
+  | 'FITNESS'
+  | 'MUSIC'
+  | 'ART'
+  | 'TECH'
+  | 'SOCIAL'
+  | 'VOLUNTEER'
+  | 'OTHER';
+
+export type EventVisibility = 'PUBLIC' | 'TRIBE_ONLY' | 'PRIVATE';
+
+export interface EventTribeSummary {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface EventCreator {
+  id: string;
+  fullName: string | null;
+  username: string | null;
+  avatarPath: string | null;
+}
+
+export interface Event {
+  id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  category: EventCategory;
+  city: string;
+  venueName: string | null;
+  addressText: string | null;
+  startAt: string;
+  endAt: string | null;
+  coverImageUrl: string | null;
+  visibility: EventVisibility;
+  capacity: number | null;
+  registrationCount: number;
+  tribe: EventTribeSummary | null;
+  createdBy: EventCreator | null;
+  createdAt: string;
+  isRegistered: boolean;
+  myPassCode: string | null;
+}
+
+export interface EventsListResponse {
+  events: Event[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface EventDetailResponse {
+  event: Event;
+}
+
+export interface CreateEventPayload {
+  title: string;
+  description?: string;
+  category?: EventCategory;
+  city: string;
+  venueName?: string;
+  addressText?: string;
+  startAt: string;
+  endAt?: string;
+  coverImageUrl?: string;
+  visibility?: EventVisibility;
+  tribeId?: string;
+  capacity?: number;
+}
+
+export interface RegisterEventResponse {
+  registration: {
+    id: string;
+    passCode: string;
+    status: string;
+    createdAt: string;
+    event: {
+      id: string;
+      title: string;
+      slug: string;
+      startAt: string;
+      city: string;
+    } | null;
+  };
+}
+
+export interface MyEventsResponse {
+  created: Event[];
+  registered: Array<{
+    id: string;
+    passCode: string;
+    status: string;
+    createdAt: string;
+    event: Event;
+  }>;
+}
+
 export interface DashboardResponse {
   user: UserData;
   profile: ProfileData;
@@ -227,4 +364,11 @@ export interface DashboardResponse {
     cta: string;
     enabled: boolean;
   };
+  upcomingEventsPreview?: Event[];
+  nextBestActions?: Array<{
+    code: string;
+    title: string;
+    subtitle: string;
+    ctaRoute: string | null;
+  }>;
 }

@@ -1,14 +1,15 @@
 const prisma = require("../../prisma/prisma");
 const { safeUser, safeProfile } = require("../../utils/safeTransform");
 const uploadService = require("../uploads/upload.service");
+const { getUpcomingEventsPreview } = require("../events/events.service");
 
 function getCompleteness(user, profile) {
   const checks = [
-    !!profile.intent,
+    (profile.growthIntent?.length || 0) > 0 || !!profile.intent,
     !!profile.username,
     !!profile.fullName,
     !!profile.city,
-    !!profile.bio,
+    !!(profile.shortBio || profile.bio),
     profile.interests?.length > 0,
     profile.skills?.length > 0,
     !!user.phoneVerified,
@@ -54,6 +55,21 @@ async function getDashboard(userId) {
 
   const hasJoinedTribe = userTribes.length > 0;
 
+  // Fetch registered events count for "attend_event" action
+  const registrationCount = await prisma.eventRegistration.count({ where: { userId } });
+  const hasRegisteredEvent = registrationCount > 0;
+
+  // Upcoming events preview (next 3 based on tribe/city)
+  const upcomingEventsPreview = await getUpcomingEventsPreview(userId, profile.city);
+
+  // Host stats
+  const hostEventCount = await prisma.event.count({
+    where: { createdById: userId, isDeleted: false },
+  });
+  const hostTotalRegistrations = await prisma.eventRegistration.count({
+    where: { event: { createdById: userId, isDeleted: false } },
+  });
+
   // Compute karma level from real points
   const karmaLevel = Math.floor(profile.karmaPoints / 100) + 1;
 
@@ -68,7 +84,7 @@ async function getDashboard(userId) {
     },
     onboarding: {
       onboardingStep: profile.onboardingStep,
-      isOnboarded: profile.isOnboarded,
+      isOnboarded: Boolean(user.onboardingCompleted || profile.isOnboarded),
       completeness,
     },
     profileSummary: {
@@ -88,7 +104,7 @@ async function getDashboard(userId) {
         id: "attend_event",
         title: "Attend an Event",
         description: "Show up, connect, and start building momentum.",
-        done: false,
+        done: hasRegisteredEvent,
         accent: "coral",
       },
       {
@@ -110,7 +126,7 @@ async function getDashboard(userId) {
         code: "attend_event",
         title: "Attend an Event",
         subtitle: "Show up, connect, and start building momentum.",
-        ctaRoute: null,
+        ctaRoute: "ExploreEvents",
       },
       {
         code: "add_skill",
@@ -130,15 +146,17 @@ async function getDashboard(userId) {
       karmaLevel,
     },
     stats: {
-      eventsAttended: 0,
+      eventsAttended: registrationCount,
       gigsDone: 0,
       connections: Math.max(profile.interests?.length || 0, 0),
     },
     hostStats: {
-      totalRsvps: 0,
+      totalRsvps: hostTotalRegistrations,
       activeGigs: 0,
       pendingApprovals: 0,
+      totalEventsCreated: hostEventCount,
     },
+    upcomingEventsPreview,
     tribes: await Promise.all(
       userTribes.map(async (ut) => {
         const signedTribe = await uploadService.attachSignedUrlsToTribe(ut.tribe);

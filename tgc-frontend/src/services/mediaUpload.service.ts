@@ -70,7 +70,7 @@ export async function putFileToSignedUrl({
 
     const status = response.info().status;
     if (status < 200 || status >= 300) {
-      const errorText = response.text();
+      const errorText = await response.text();
       console.error('[putFileToSignedUrl] Upload failed:', errorText);
       throw new Error(errorText || `Upload failed with status ${status}`);
     }

@@ -35,32 +35,24 @@ Health check:
 curl http://localhost:3000/health
 ```
 
-Register:
+Users/me (use Supabase access token from OTP/Google sign-in):
 ```bash
-curl -X POST http://localhost:3000/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@tgc.com","password":"pass1234"}'
+curl http://localhost:3000/users/me \
+  -H "Authorization: Bearer SUPABASE_ACCESS_TOKEN"
 ```
 
-Login:
-```bash
-curl -X POST http://localhost:3000/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@tgc.com","password":"pass1234"}'
-```
-
-Update profile (use token from register/login):
+Update profile (use Supabase access token):
 ```bash
 curl -X PATCH http://localhost:3000/profile \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Authorization: Bearer SUPABASE_ACCESS_TOKEN" \
   -d '{"fullName":"Aman","city":"Bhopal","interests":["music","sports"],"skills":["event hosting"],"onboardingStep":5,"isOnboarded":true}'
 ```
 
 Get dashboard:
 ```bash
 curl http://localhost:3000/dashboard \
-  -H "Authorization: Bearer YOUR_TOKEN"
+  -H "Authorization: Bearer SUPABASE_ACCESS_TOKEN"
 ```
 
 ## Optional: Prisma Studio

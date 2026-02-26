@@ -6,22 +6,23 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import {useQueryClient} from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { LogOut, Award, Users, Briefcase, Link2, Lock } from 'lucide-react-native';
+import { LogOut, Award, Users, Briefcase, Link2, Lock, Pencil } from 'lucide-react-native';
 import { useAppSelector, useAppDispatch } from '../../../store/hooks';
 import { logoutAndClear } from '../../../store/slices/authSlice';
-import { logoutApi } from '../../auth/api/auth.api';
-import { getRefreshToken } from '../../../services/http/tokenStore';
 import { useDashboard } from '../../dashboard/hooks/useDashboard';
 import {useMe} from '../hooks/useMe';
 import {useUploadAvatar} from '../hooks/useUploadAvatar';
 import {useEnableHost} from '../../host/hooks/useEnableHost';
 import {useMyTribes} from '../../tribes/hooks/useMyTribes';
+import {useMyEvents} from '../../events/hooks/useMyEvents';
 import {useUIMode} from '../../ui-mode/UIModeProvider';
 import {pickImageFromDevice} from '../../../utils/media/pickImage';
 import TribeCoverAvatar from '../../tribes/components/TribeCoverAvatar';
@@ -48,6 +49,7 @@ export default function ProfileScreen() {
   const dashboardQuery = useDashboard();
   const meQuery = useMe();
   const myTribesQuery = useMyTribes();
+  const myEventsQuery = useMyEvents();
   const {uiMode, canUseHostMode, setUIMode} = useUIMode();
   const enableHost = useEnableHost();
   const uploadAvatar = useUploadAvatar();
@@ -99,6 +101,7 @@ export default function ProfileScreen() {
   const canCreateTribes = user?.role === 'HOST' || user?.role === 'ADMIN';
   const shouldShowEnableHost = user?.role === 'USER';
   const myTribes = myTribesQuery.data?.tribes ?? [];
+  const myPasses = myEventsQuery.data?.registered ?? [];
 
   const setMode = (mode: 'USER' | 'HOST') => {
     if (mode === 'HOST' && !canUseHostMode) {
@@ -123,15 +126,8 @@ export default function ProfileScreen() {
   };
 
   const handleSignOut = async () => {
-    try {
-      const rt = await getRefreshToken();
-      if (rt) {
-        await logoutApi(rt).catch(() => {});
-      }
-    } finally {
-      queryClient.clear();
-      await logoutAndClear(dispatch);
-    }
+    queryClient.clear();
+    await logoutAndClear(dispatch);
   };
 
   const handleEditAvatar = async () => {
@@ -164,9 +160,10 @@ export default function ProfileScreen() {
 
   return (
     <AppBackground style={styles.container}>
+        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
         <SoftGradient
           colors={headerGradient}
-          style={[styles.header, {paddingTop: insets.top + 8}]}
+          style={[styles.header, {paddingTop: insets.top}]}
           intensity={0.56}
         >
           <TouchableOpacity
@@ -178,28 +175,35 @@ export default function ProfileScreen() {
             <Text style={styles.signOutText}>Sign out</Text>
           </TouchableOpacity>
 
-          <View style={styles.avatarWrap}>
-            {profile.avatarUrl ? (
-              <Image
-                source={{uri: profile.avatarUrl}}
-                style={styles.avatarImage}
-                resizeMode="cover"
-              />
-            ) : (
-              <Text style={styles.avatarFallback}>
-                {displayName.slice(0, 2).toUpperCase()}
-              </Text>
-            )}
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatarWrap}>
+              {profile.avatarUrl ? (
+                <Image
+                  source={{uri: profile.avatarUrl}}
+                  style={styles.avatarImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={styles.avatarFallback}>
+                  {displayName.slice(0, 2).toUpperCase()}
+                </Text>
+              )}
+            </View>
+            <TouchableOpacity
+              onPress={handleEditAvatar}
+              style={[
+                styles.avatarEditIconBtn,
+                uploadAvatar.isPending && styles.avatarEditIconBtnDisabled,
+              ]}
+              activeOpacity={0.8}
+              disabled={uploadAvatar.isPending}>
+              {uploadAvatar.isPending ? (
+                <ActivityIndicator size="small" color={TGC_COLORS.textPrimary} />
+              ) : (
+                <Pencil size={14} color={TGC_COLORS.textPrimary} />
+              )}
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            onPress={handleEditAvatar}
-            style={styles.avatarEditBtn}
-            activeOpacity={0.8}
-            disabled={uploadAvatar.isPending}>
-            <Text style={styles.avatarEditBtnText}>
-              {uploadAvatar.isPending ? 'Uploading...' : 'Edit Avatar'}
-            </Text>
-          </TouchableOpacity>
 
           <Text style={styles.name} numberOfLines={1}>
             {displayName}
@@ -343,8 +347,15 @@ export default function ProfileScreen() {
                 Quick actions for managing your communities and updates.
               </Text>
               <TouchableOpacity
-                onPress={() => navigation.navigate('CreateTribe')}
+                onPress={() => navigation.navigate('CreateEvent')}
                 style={styles.createTribeBtn}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.createTribeBtnText}>Create Event</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('CreateTribe')}
+                style={[styles.createTribeBtn, {marginTop: 10, borderColor: TGC_COLORS.lavender, backgroundColor: 'rgba(200,182,255,0.14)'}]}
                 activeOpacity={0.75}
               >
                 <Text style={styles.createTribeBtnText}>Create Tribe</Text>
@@ -429,6 +440,52 @@ export default function ProfileScreen() {
               </>
             )}
           </SurfaceCard>
+          {/* My Passes */}
+          <SurfaceCard style={styles.card}>
+            <View style={styles.tribeHeaderRow}>
+              <Text style={styles.cardTitle}>My Passes</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('ExploreEvents')}>
+                <Text style={styles.explore}>Explore</Text>
+              </TouchableOpacity>
+            </View>
+            {myPasses.length > 0 ? (
+              myPasses.slice(0, 3).map(reg => (
+                <TouchableOpacity
+                  key={reg.id}
+                  onPress={() =>
+                    navigation.navigate('MyPass', {
+                      passCode: reg.passCode,
+                      eventTitle: reg.event.title,
+                      eventStartAt: reg.event.startAt,
+                      eventCity: reg.event.city,
+                    })
+                  }
+                  style={styles.tribeRow}
+                  activeOpacity={0.6}>
+                  <View style={[styles.tribeAvatar, {backgroundColor: 'rgba(125,211,192,0.2)'}]}>
+                    <Text style={{fontSize: 22}}>🎟️</Text>
+                  </View>
+                  <View style={styles.tribeBody}>
+                    <Text style={styles.tribeName} numberOfLines={1}>{reg.event.title}</Text>
+                    <Text style={styles.tribeMembers}>{reg.event.city} · {reg.passCode}</Text>
+                  </View>
+                  <Text style={[styles.tribeArrow, {color: TGC_COLORS.mint}]}>↗</Text>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <>
+                <Text style={styles.emptyText}>No event passes yet.</Text>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('ExploreEvents')}
+                  style={styles.inlineCreateBtn}
+                  activeOpacity={0.75}>
+                  <Text style={[styles.inlineCreateBtnText, {color: TGC_COLORS.mint}]}>
+                    Find events to join
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </SurfaceCard>
         </View>
       </ScrollView>
     </AppBackground>
@@ -457,7 +514,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
     paddingHorizontal: 20,
-    paddingBottom: 18,
+    paddingBottom: 12,
     alignItems: 'center',
     shadowColor: TGC_COLORS.coral,
     shadowOpacity: 0.22,
@@ -481,12 +538,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
+  avatarContainer: {
+    marginTop: 2,
+    position: 'relative',
+  },
   avatarWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: 'rgba(255,255,255,0.24)',
-    marginTop: 4,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -499,29 +559,34 @@ const styles = StyleSheet.create({
   },
   avatarFallback: {
     color: '#fff',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
   },
-  avatarEditBtn: {
-    marginTop: 8,
-    minHeight: 32,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+  avatarEditIconBtn: {
+    position: 'absolute',
+    right: -1,
+    bottom: -1,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.92)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: 'rgba(45,42,38,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: TGC_COLORS.coral,
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    shadowOffset: {width: 0, height: 2},
+    elevation: 2,
   },
-  avatarEditBtnText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '800',
+  avatarEditIconBtnDisabled: {
+    opacity: 0.9,
   },
   name: {
-    marginTop: 8,
+    marginTop: 6,
     color: '#fff',
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '900',
     textAlign: 'center',
     textShadowColor: 'rgba(45, 42, 38, 0.16)',
@@ -534,7 +599,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   modeSwitch: {
-    marginTop: 12,
+    marginTop: 10,
     width: 180,
     borderRadius: 999,
     padding: 4,
@@ -747,6 +812,11 @@ const styles = StyleSheet.create({
   },
   tribeEmoji: {
     fontSize: 24,
+  },
+  tribeInitials: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '900',
   },
   tribeBody: {
     flex: 1,

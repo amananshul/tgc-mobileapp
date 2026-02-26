@@ -42,6 +42,7 @@ export default function ExploreTribesScreen() {
   const insets = useSafeAreaInsets();
   const navigation =
     useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const canGoBack = navigation.canGoBack();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [category, setCategory] = useState('all');
@@ -118,11 +119,15 @@ export default function ExploreTribesScreen() {
         style={[styles.header, {paddingTop: insets.top + 12}]}
         intensity={0.56}>
         <View style={styles.headerRow}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backBtn}>
-            <ArrowLeft size={22} color="#fff" />
-          </TouchableOpacity>
+          {canGoBack ? (
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={styles.backBtn}>
+              <ArrowLeft size={22} color="#fff" />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.backBtn} />
+          )}
           <Text style={styles.headerTitle}>Explore Tribes</Text>
           <View style={styles.backBtn} />
         </View>

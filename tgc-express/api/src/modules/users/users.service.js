@@ -5,11 +5,11 @@ const uploadService = require("../uploads/upload.service");
 function getProfileCompleteness(user, profile) {
   if (!profile) return 0;
   const checks = [
-    !!profile.intent,
+    (profile.growthIntent?.length || 0) > 0 || !!profile.intent,
     !!profile.username,
     !!profile.fullName,
     !!profile.city,
-    !!profile.bio,
+    !!(profile.shortBio || profile.bio),
     profile.interests?.length > 0,
     profile.skills?.length > 0,
     !!user.phoneVerified,

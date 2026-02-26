@@ -1,14 +1,12 @@
 import React from 'react';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
-import AuthIntroScreen from '../../features/auth/screens/AuthIntroScreen';
-import LoginScreen from '../../features/auth/screens/LoginScreen';
-import RegisterScreen from '../../features/auth/screens/RegisterScreen';
+import AuthLandingScreen from '../../features/auth/screens/AuthLandingScreen';
+import OtpVerifyScreen from '../../features/auth/screens/OtpVerifyScreen';
 import {TGC_COLORS} from '../../theme/tgcTheme';
 
 export type AuthStackParamList = {
-  Intro: undefined;
-  Login: undefined;
-  Register: undefined;
+  AuthLanding: undefined;
+  OtpVerify: {identifier: string};
 };
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
@@ -16,15 +14,14 @@ const Stack = createNativeStackNavigator<AuthStackParamList>();
 export default function AuthStack() {
   return (
     <Stack.Navigator
-      initialRouteName="Intro"
+      initialRouteName="AuthLanding"
       screenOptions={{
         headerShown: false,
         contentStyle: {backgroundColor: TGC_COLORS.bgPrimary},
         animation: 'slide_from_right',
       }}>
-      <Stack.Screen name="Intro" component={AuthIntroScreen} />
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="AuthLanding" component={AuthLandingScreen} />
+      <Stack.Screen name="OtpVerify" component={OtpVerifyScreen} />
     </Stack.Navigator>
   );
 }

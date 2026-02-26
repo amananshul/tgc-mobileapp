@@ -1,0 +1,43 @@
+{
+  "project_info": {
+    "project_number": "799730251922",
+    "project_id": "tgcapp-aca66",
+    "storage_bucket": "tgcapp-aca66.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:799730251922:android:528425cb087bf0a8b98e4b",
+        "android_client_info": {
+          "package_name": "com.tgcfrontend"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "799730251922-uft65rlqh7hoalc7tbd0qt4586o0rgcc.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tgcfrontend",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBCydKKGkjIFxm4r5cQam4PfI5Pb2ekvfc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "799730251922-ehc6dmlrn9dgcahshdgsqs3t2schpbk2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -15,7 +15,7 @@ export default function App() {
         <UIModeProvider>
           <SafeAreaProvider>
             <StatusBar
-              barStyle="dark-content"
+              barStyle="light-content"
               backgroundColor={TGC_COLORS.bgPrimary}
               translucent={false}
               hidden={false}

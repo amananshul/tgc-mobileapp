@@ -13,6 +13,24 @@ enum ProfileIntent {
   ENTERTAIN
 }
 
+enum EventCategory {
+  WORKSHOP
+  OPEN_MIC
+  FITNESS
+  MUSIC
+  ART
+  TECH
+  SOCIAL
+  VOLUNTEER
+  OTHER
+}
+
+enum EventVisibility {
+  PUBLIC
+  TRIBE_ONLY
+  PRIVATE
+}
+
 enum ProfileMode {
   USER
   HOST
@@ -38,20 +56,26 @@ enum TribeMemberRole {
 model User {
   id            String    @id @default(uuid())
   email         String    @unique
+  supabaseId    String?   @unique
   passwordHash  String
   phone         String?   @unique
   phoneVerified Boolean   @default(false)
   otpCode       String?
   otpExpiry     DateTime?
   role          UserRole  @default(USER)
+  onboardingCompleted Boolean @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   profile        Profile?
   refreshTokens  RefreshToken[]
   tribes         UserTribe[]
-  createdTribes  Tribe[]        @relation("TribeCreator")
+  createdTribes  Tribe[]              @relation("TribeCreator")
   tribePosts     TribePost[]
+  createdEvents  Event[]              @relation("EventCreator")
+  deletedEvents  Event[]              @relation("EventDeleter")
+  eventCollaborations EventCollaborator[]
+  eventRegistrations  EventRegistration[]
 }
 
 model RefreshToken {
@@ -70,11 +94,13 @@ model Profile {
   id             String   @id @default(uuid())
   userId         String   @unique
   intent         ProfileIntent?
+  growthIntent   String[] @default([])
   avatarPath     String?
   username       String?  @unique
   fullName       String?
   city           String?
   bio            String?  @db.VarChar(120)
+  shortBio       String?  @db.VarChar(140)
   interests      String[] @default([])
   skills         String[] @default([])
   activeMode     ProfileMode @default(USER)
@@ -102,6 +128,7 @@ model Tribe {
   createdBy     User?           @relation("TribeCreator", fields: [createdById], references: [id])
   members       UserTribe[]
   posts         TribePost[]
+  events        Event[]
 
   @@index([category])
   @@index([slug])
@@ -136,4 +163,70 @@ model TribePost {
   @@index([tribeId])
   @@index([userId])
   @@index([tribeId, createdAt])
+}
+
+model Event {
+  id                String          @id @default(uuid())
+  title             String
+  slug              String          @unique
+  description       String?         @db.VarChar(2000)
+  category          EventCategory   @default(OTHER)
+  city              String
+  venueName         String?
+  addressText       String?
+  startAt           DateTime
+  endAt             DateTime?
+  coverImageUrl     String?
+  visibility        EventVisibility @default(PUBLIC)
+  capacity          Int?
+  registrationCount Int             @default(0)
+  tribeId           String?
+  createdById       String
+  isDeleted         Boolean         @default(false)
+  deletedAt         DateTime?
+  deletedById       String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  tribe             Tribe?              @relation(fields: [tribeId], references: [id])
+  createdBy         User                @relation("EventCreator", fields: [createdById], references: [id])
+  deletedBy         User?               @relation("EventDeleter", fields: [deletedById], references: [id])
+  collaborators     EventCollaborator[]
+  registrations     EventRegistration[]
+
+  @@index([startAt])
+  @@index([city])
+  @@index([tribeId])
+  @@index([createdById])
+  @@index([isDeleted])
+}
+
+model EventCollaborator {
+  id      String @id @default(uuid())
+  eventId String
+  userId  String
+  role    String @default("COHOST")
+
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
+}
+
+model EventRegistration {
+  id        String   @id @default(uuid())
+  eventId   String
+  userId    String
+  status    String   @default("REGISTERED")
+  passCode  String   @unique
+  createdAt DateTime @default(now())
+
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
 }
