@@ -9,7 +9,16 @@ export interface PickedImageAsset {
   fileSize: number;
 }
 
-/** Hard limit after picker compression (before app-level resizer runs) */
+export interface PickImageOptions {
+  /** JPEG quality 0–1. Default: 0.72 */
+  quality?: number;
+  /** Max pixel width (aspect preserved). Default: 1280 */
+  maxWidth?: number;
+  /** Max pixel height (aspect preserved). Default: 720 */
+  maxHeight?: number;
+}
+
+/** Hard limit after picker compression */
 const MAX_FILE_SIZE_BYTES = 1024 * 1024; // 1 MB
 
 function fallbackFileName(uri: string) {
@@ -39,23 +48,26 @@ async function resolveFileSize(uri: string, reportedSize: number): Promise<numbe
 /**
  * Opens the device image library and returns a compressed image asset.
  *
- * Compression strategy (applied by react-native-image-picker):
- *   quality: 0.72  → ~72 % JPEG quality
- *   maxWidth/maxHeight: 1280 × 720  → aspect-ratio-preserved resize
+ * Pass `options` to override quality/resolution per use-case:
+ *   - Profile avatar: quality 0.4, 640×640  → ~40–80 KB
+ *   - Default (covers, posts): quality 0.72, 1280×720  → ~180–350 KB
  *
- * A typical phone photo (8 MB, 4032×3024) after these settings
- * compresses to roughly 180–350 KB — usually well under the 1 MB pre-check.
- *
- * Throws a user-readable Error if the resolved size exceeds the 1 MB pre-check.
+ * Throws a user-readable Error if the resolved size exceeds 1 MB.
  */
-export async function pickImageFromDevice(): Promise<PickedImageAsset | null> {
+export async function pickImageFromDevice(
+  options?: PickImageOptions,
+): Promise<PickedImageAsset | null> {
+  const quality = options?.quality ?? 0.72;
+  const maxWidth = options?.maxWidth ?? 1280;
+  const maxHeight = options?.maxHeight ?? 720;
+
   const result = await launchImageLibrary({
     mediaType: 'photo',
     selectionLimit: 1,
     includeBase64: false,
-    quality: 0.72 as any,   // JPEG compression
-    maxWidth: 1280,  // caps resolution; aspect ratio is preserved by the library
-    maxHeight: 720,
+    quality: quality as any,
+    maxWidth,
+    maxHeight,
   });
 
   if (result.didCancel) {

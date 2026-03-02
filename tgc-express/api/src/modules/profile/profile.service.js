@@ -102,6 +102,14 @@ function buildProfilePatch(userId, data) {
 async function persistProfileUpdate(userId, patch, { forceOnboardingComplete = false } = {}) {
   const current = await getProfileByUserId(userId);
 
+  // Track old avatar so we can delete it from storage after a successful DB update.
+  const oldAvatarPath =
+    "avatarPath" in patch &&
+    patch.avatarPath &&
+    patch.avatarPath !== current.avatarPath
+      ? current.avatarPath
+      : null;
+
   const merged = {
     ...current,
     ...patch,
@@ -146,6 +154,11 @@ async function persistProfileUpdate(userId, patch, { forceOnboardingComplete = f
       }
     }
     throw err;
+  }
+
+  // Delete old avatar from storage (fire-and-forget, never blocks the response).
+  if (oldAvatarPath) {
+    uploadService.deleteStoragePath(oldAvatarPath).catch(() => {});
   }
 
   const signedProfile = await uploadService.attachSignedUrlsToProfile(updatedProfile);

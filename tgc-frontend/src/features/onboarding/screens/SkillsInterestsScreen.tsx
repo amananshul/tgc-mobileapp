@@ -7,6 +7,7 @@ import {
   Animated,
   Easing,
   Dimensions,
+  Modal,
 } from 'react-native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
@@ -223,6 +224,7 @@ export default function SkillsInterestsScreen({navigation}: Props) {
   };
 
   return (
+    <>
     <OnboardingScaffold
       step={3}
       onBack={() => navigation.goBack()}
@@ -273,8 +275,10 @@ export default function SkillsInterestsScreen({navigation}: Props) {
         {error ? <Text style={styles.error}>{error}</Text> : null}
       </SurfaceCard>
 
-      {/* ── Celebration overlay ── */}
-      {celebrating ? (
+    </OnboardingScaffold>
+
+      {/* ── Celebration overlay (Modal = covers full screen + status bar on Android) ── */}
+      <Modal visible={celebrating} transparent animationType="none" statusBarTranslucent>
         <Animated.View style={[styles.overlay, {opacity: overlayOpacity}]}>
           {/* Confetti */}
           {confetti.map((p, i) => (
@@ -344,8 +348,8 @@ export default function SkillsInterestsScreen({navigation}: Props) {
             </Animated.View>
           </Animated.View>
         </Animated.View>
-      ) : null}
-    </OnboardingScaffold>
+      </Modal>
+    </>
   );
 }
 

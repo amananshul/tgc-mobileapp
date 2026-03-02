@@ -293,6 +293,17 @@ async function presignUpload({ userId, purpose, fileName, mimeType, tribeId, fil
   return createSignedUploadUrl(pathValue, mimeType, DEFAULT_UPLOAD_URL_EXPIRES_SEC);
 }
 
+async function deleteStoragePath(pathValue) {
+  if (!pathValue) return;
+  try {
+    const storage = getSupabaseClient().storage.from(env.supabaseMediaBucket);
+    await storage.remove([pathValue]);
+  } catch {
+    // Fire-and-forget — log but never block the main flow
+    console.warn("[deleteStoragePath] Failed to delete old file:", pathValue);
+  }
+}
+
 async function attachSignedUrlsToProfile(profile) {
   if (!profile) return null;
   return {
@@ -361,6 +372,7 @@ module.exports = {
   assertStoragePathMatchesPurpose,
   ensureCanViewPath,
   presignUpload,
+  deleteStoragePath,
   attachSignedUrlsToProfile,
   attachSignedUrlsToTribe,
   attachSignedUrlsToTribes,

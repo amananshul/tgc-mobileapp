@@ -1,3 +1,4 @@
+import {Image as CompressorImage} from 'react-native-compressor';
 import type {PickedImageAsset} from './pickImage';
 
 export type MediaUploadPurpose = 'profile' | 'tribe-cover' | 'tribe-post' | 'event-cover';
@@ -27,19 +28,44 @@ function ensureFileUri(uri: string) {
   return `file://${uri}`;
 }
 
+/** Compression targets per purpose */
+const COMPRESSION_OPTIONS: Record<
+  MediaUploadPurpose,
+  {maxWidth: number; quality: number}
+> = {
+  profile:       {maxWidth: 600,  quality: 0.5},  // target ~40–80 KB
+  'tribe-cover': {maxWidth: 1024, quality: 0.7},
+  'event-cover': {maxWidth: 1024, quality: 0.7},
+  'tribe-post':  {maxWidth: 800,  quality: 0.65},
+};
+
 /**
- * react-native-image-picker already compresses images (quality 0.72, max 1280×720)
- * producing ~200–400 KB per photo. We use that output directly to avoid requiring
- * a separate native resize module (which has new-architecture compatibility issues).
+ * Compresses the picked image using react-native-compressor (New Architecture compatible).
+ * Uses manual mode so quality + maxWidth are applied deterministically on both platforms.
  */
 export async function compressImage({
   image,
+  purpose,
 }: {
   image: PickedImageAsset;
   purpose: MediaUploadPurpose;
 }): Promise<CompressedImageAsset> {
+  const {maxWidth, quality} = COMPRESSION_OPTIONS[purpose];
+
+  const compressedUri = await CompressorImage.compress(
+    ensureFileUri(image.uri),
+    {
+      compressionMethod: 'manual',
+      maxWidth,
+      quality,
+      input: 'uri',
+      output: 'jpg',
+      returnableOutputType: 'uri',
+    },
+  );
+
   return {
-    uri: ensureFileUri(image.uri),
+    uri: compressedUri,
     fileName: toJpegFileName(image.fileName),
     mimeType: 'image/jpeg',
     width: image.width,
